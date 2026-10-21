@@ -1,0 +1,2235 @@
+{
+  "id": "jKTCtmJwN60foGZz",
+  "name": "Mattermost Control",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "podcast-briefing",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -272,
+        -32
+      ],
+      "id": "9dd388e3-c5ae-4494-91e0-aaf099bc5f12",
+      "name": "Briefing",
+      "webhookId": "6e24af61-e563-1072-ad50-8b448963b790"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "RDinGXe0wJt4PzQq",
+          "mode": "list",
+          "cachedResultName": "Podcasts Generation"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "arxivID": "={{ $json.body.text }}",
+            "podcast_type": "Briefing"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "arxivID",
+              "displayName": "arxivID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "podcast_type",
+              "displayName": "podcast_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -48,
+        64
+      ],
+      "id": "7cddf88b-fa1c-ce8f-c829-497c24aafc91",
+      "name": "Generate Briefing"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "RDinGXe0wJt4PzQq",
+          "mode": "list",
+          "cachedResultName": "Podcasts Generation"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "arxivID": "={{ $json.body.text }}",
+            "podcast_type": "Breakdown"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "arxivID",
+              "displayName": "arxivID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "podcast_type",
+              "displayName": "podcast_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -48,
+        480
+      ],
+      "id": "9fdcb6d9-cc31-88df-9901-9b7f0d0054fe",
+      "name": "Generate Breakdown"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "RDinGXe0wJt4PzQq",
+          "mode": "list",
+          "cachedResultName": "Podcasts Generation"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "arxivID": "={{ $json.body.text }}",
+            "podcast_type": "Deep Dive"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "arxivID",
+              "displayName": "arxivID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "podcast_type",
+              "displayName": "podcast_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        -48,
+        896
+      ],
+      "id": "23474a37-879a-b6f9-91a4-009b36f9830a",
+      "name": "Generate Deep Dive"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "podcast-breakdown",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -272,
+        384
+      ],
+      "id": "38c2edad-8da2-ea54-6707-b338c3c3e3f3",
+      "name": "Breakdown",
+      "webhookId": "8917fe8f-77f8-780a-e39d-ffdf7ed46d99"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "podcast-deepdive",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -272,
+        800
+      ],
+      "id": "450101ec-a47d-47e2-6241-3829ad26af2f",
+      "name": "Deep Dive",
+      "webhookId": "4b72af79-6e2c-e321-4bfb-930dea0d87ee"
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MATTERMOST_CHANNEL_ID }}",
+        "message": "=Generating Podcast (Briefing) of {{ $json.body.text }}",
+        "attachments": [],
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        -128
+      ],
+      "id": "72aadaeb-e1f9-fd4a-e3a3-a5de22a6f219",
+      "name": "Notify Briefing",
+      "credentials": {
+        "mattermostApi": {
+          "id": "mattermostBot001",
+          "name": "Mattermost bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MATTERMOST_CHANNEL_ID }}",
+        "message": "=Generating Podcast (Breakdown) of {{ $json.body.text }}",
+        "attachments": [],
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        288
+      ],
+      "id": "3615f203-b648-dcb8-2a6a-39de76e88c5f",
+      "name": "Notify Breakdown",
+      "credentials": {
+        "mattermostApi": {
+          "id": "mattermostBot001",
+          "name": "Mattermost bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MATTERMOST_CHANNEL_ID }}",
+        "message": "=Generating Podcast (Deep Dive) of {{ $json.body.text }}",
+        "attachments": [],
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        704
+      ],
+      "id": "e85248d6-93d0-0dc8-d73b-d9afe65c977b",
+      "name": "Notify Deep Dive",
+      "credentials": {
+        "mattermostApi": {
+          "id": "mattermostBot001",
+          "name": "Mattermost bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "podcast-form",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -272,
+        1216
+      ],
+      "id": "5acf5c5b-034a-d86b-bd33-14b90c5b0c69",
+      "name": "Podcast Form Command",
+      "webhookId": "485408e8-dd20-0b62-434d-9fb73933180a"
+    },
+    {
+      "parameters": {
+        "resume": "form",
+        "formTitle": "Podcast Generation",
+        "formDescription": "=You can use the following form to trigger the generation of a Podcast from a PDF or epub.\nThe following formats are supported:\n  - Briefing: a ~5 min overview of the work\n  - Breakdown: a ~15 min breakdown of the work\n  - Deep Dive: a ~45 min in depth podcast on the work",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Podcast Type",
+              "fieldType": "dropdown",
+              "defaultValue": "Briefing",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Briefing"
+                  },
+                  {
+                    "option": "Breakdown"
+                  },
+                  {
+                    "option": "Deep Dive"
+                  },
+                  {
+                    "option": "Lecture Series"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "File",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": "pdf,epub",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "DOI"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        176,
+        1216
+      ],
+      "id": "f9353a3c-a0d2-04e2-860a-dbf3f0acb946",
+      "name": "Podcast Upload Form",
+      "webhookId": "8fc4e0af-e9ce-2e63-a40f-3bf6b81248a5"
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MATTERMOST_CHANNEL_ID }}",
+        "message": "=[📤 Click Here for Podcast Generation]({{ $execution.resumeFormUrl }})",
+        "attachments": [
+          {}
+        ],
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        -48,
+        1216
+      ],
+      "id": "a39e40c5-0b96-2c99-d4ee-8b03177e18e9",
+      "name": "Send Podcast Form Link",
+      "credentials": {
+        "mattermostApi": {
+          "id": "mattermostBot001",
+          "name": "Mattermost bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "RDinGXe0wJt4PzQq",
+          "mode": "list",
+          "cachedResultName": "Podcasts Generation"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "arxivID": "=",
+            "data": "={{ $binary.File }}",
+            "podcast_type": "={{ $json[\"Podcast Type\"] }}",
+            "DOI": "={{ $json[\"DOI\"] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "arxivID",
+              "displayName": "arxivID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "podcast_type",
+              "displayName": "podcast_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "data",
+              "displayName": "data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "DOI",
+              "displayName": "DOI",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        400,
+        1312
+      ],
+      "id": "ddcbc771-b764-422f-d3da-f7d71c3ad43c",
+      "name": "Generate from File"
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MATTERMOST_CHANNEL_ID }}",
+        "message": "=Generating Podcast ({{ $json[\"Podcast Type\"] }}) from a file",
+        "attachments": [],
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        400,
+        1120
+      ],
+      "id": "aa8aa8a0-9b9c-5a0b-1e7f-715bc1c30957",
+      "name": "Notify File Podcast",
+      "credentials": {
+        "mattermostApi": {
+          "id": "mattermostBot001",
+          "name": "Mattermost bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "arxiv_overflow",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1008,
+        416
+      ],
+      "id": "43a026e3-fade-eb6e-253b-1ca3ccd3f2cd",
+      "name": "Overflow",
+      "webhookId": "2bca8fa2-0bb1-cbce-f2f0-8fb21c567af1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\n\nconst overflowPath = path.join('/data', 'arxiv_overflow.json');\nlet overflowBuffer = [];\n\nif (fs.existsSync(overflowPath)) {\n  try {\n    const rawData = fs.readFileSync(overflowPath, 'utf8');\n    overflowBuffer = JSON.parse(rawData || '[]');\n  } catch (e) {\n    console.error(\"Error reading overflow file:\", e);\n    overflowBuffer = [];\n  }\n}\n\nif (overflowBuffer.length === 0) {\n  return []; // Stops execution if queue is empty\n}\n\n// Return formatted array instructing n8n to split into individual items\nreturn overflowBuffer.map(paper => ({\n  json: {\n    title: paper.title || \"Untitled Paper\",\n    authors: paper.authors || \"Unknown Authors\",\n    arxivId: paper.arxivId,\n    url: paper.url || `https://arxiv.org/abs/${paper.arxivId}`,\n    rationale: paper.rationale || \"No rationale provided.\"\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        416
+      ],
+      "id": "f99616db-0e5e-bd5e-e886-750635299dec",
+      "name": "Read & Format Queue"
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MATTERMOST_CHANNEL_ID }}",
+        "message": "=",
+        "attachments": [
+          {
+            "title": "=📄 {{ $json.title }}",
+            "title_link": "={{ $json.url }}",
+            "fields": {
+              "item": [
+                {
+                  "title": "arXiv ID",
+                  "value": "={{ $json.arxivId }}",
+                  "short": true
+                },
+                {
+                  "title": "Authors",
+                  "value": "={{ $json.authors }}",
+                  "short": true
+                },
+                {
+                  "title": "Rationale",
+                  "value": "={{ $json.rationale }}",
+                  "short": true
+                }
+              ]
+            },
+            "actions": {
+              "item": [
+                {
+                  "type": "button",
+                  "data_source": "custom",
+                  "options": {},
+                  "name": "✅ Generate Briefing",
+                  "integration": {
+                    "item": {
+                      "url": "={{ ($env.WEBHOOK_URL || '').replace(/\\/+$/, '') }}/webhook/overflow-callback",
+                      "context": {
+                        "property": [
+                          {
+                            "name": "action",
+                            "value": "briefing"
+                          },
+                          {
+                            "name": "arxivId",
+                            "value": "={{ $json.arxivId }}"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "button",
+                  "data_source": "custom",
+                  "options": {},
+                  "name": "❌ Discard",
+                  "integration": {
+                    "item": {
+                      "url": "={{ ($env.WEBHOOK_URL || '').replace(/\\/+$/, '') }}/webhook/overflow-callback",
+                      "context": {
+                        "property": [
+                          {
+                            "name": "action",
+                            "value": "discard"
+                          },
+                          {
+                            "name": "arxivId",
+                            "value": "={{ $json.arxivId }}"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        416
+      ],
+      "id": "7323e394-46d6-2975-226d-ac2cd20ecbad",
+      "name": "Podcast Paper Card",
+      "credentials": {
+        "mattermostApi": {
+          "id": "mattermostBot001",
+          "name": "Mattermost bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "overflow-callback",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        1008,
+        736
+      ],
+      "id": "2b949856-64c4-e14c-cbae-a96cf7c52689",
+      "name": "Overflow Callback",
+      "webhookId": "d90cdb50-4e05-420d-c9e3-d584cfcc92bc"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\n\nconst overflowPath = path.join('/data', 'arxiv_overflow.json');\n\n// 1. Extract minimal payload sent from Mattermost button context\nconst payload = $input.all()[0]?.json?.body?.context || {};\nconst targetArxivId = payload.arxivId;\nconst action = payload.action; // 'keep' or 'discard'\n\nlet overflowBuffer = [];\n\n// 2. Read the overflow file safely\nif (fs.existsSync(overflowPath)) {\n  try {\n    const rawData = fs.readFileSync(overflowPath, 'utf8');\n    overflowBuffer = JSON.parse(rawData || '[]');\n  } catch (e) {\n    console.error(\"Error reading overflow file:\", e);\n    overflowBuffer = [];\n  }\n}\n\n// 3. Find the paper before removing it (to retain details like title/url)\nconst targetPaper = overflowBuffer.find(paper => paper.arxivId === targetArxivId) || {};\n\n// 4. Remove the paper from the buffer\nconst initialLength = overflowBuffer.length;\nconst updatedBuffer = overflowBuffer.filter(paper => paper.arxivId !== targetArxivId);\n\n// 5. Overwrite the file back to disk\nif (updatedBuffer.length !== initialLength) {\n  try {\n    fs.writeFileSync(overflowPath, JSON.stringify(updatedBuffer, null, 2), 'utf8');\n  } catch (e) {\n    console.error(\"Error writing updated overflow file:\", e);\n  }\n}\n\n// 6. Return enriched payload for downstream nodes\nreturn [{\n  json: {\n    action: action,\n    arxivId: targetArxivId,\n    title: targetPaper.title || targetArxivId || \"Paper\",\n    url: targetPaper.url || `https://arxiv.org/abs/${targetArxivId}`,\n    authors: targetPaper.authors || \"\",\n    rationale: targetPaper.rationale || \"\",\n    remainingCount: updatedBuffer.length\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        736
+      ],
+      "id": "e88c30e2-c4a1-e35d-3ed9-2b04042f22aa",
+      "name": "Splice File & Mutate State"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"update\": {\n    \"message\": \"{{ $json.action === 'briefing' ? '✅ **Forwarded to Podcast Pipeline:**' : '❌ **Discarded:**' }} *{{ $json.title }} (arXiv:{{ $json.arxivId }})* ({{ $json.remainingCount }} remaining in queue)\",\n    \"props\": {\n      \"attachments\": []\n    }\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1456,
+        736
+      ],
+      "id": "9fc3912c-0229-d99d-9d7a-2a3e1f920c5f",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "briefing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "781bc71e-b7ef-4ee4-8d32-0e36039a3c30"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "71745a77-8824-4d43-8952-526e6c773d10",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "discard",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        736
+      ],
+      "id": "e6266851-1994-ef52-ae7f-6315f3cdb666",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "RDinGXe0wJt4PzQq",
+          "mode": "list",
+          "cachedResultName": "Podcasts Generation"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "arxivID": "={{ $json.arxivId }}",
+            "podcast_type": "Briefing"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "arxivID",
+              "displayName": "arxivID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "podcast_type",
+              "displayName": "podcast_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1904,
+        832
+      ],
+      "id": "a2a8c60e-68cb-38eb-3215-79c2d0dc0f2e",
+      "name": "Generate Briefing (Overflow)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const paper = $input.first().json;\n\n// 1. Normalize authors into an array\nlet authorsList = [];\nif (Array.isArray(paper.authors)) {\n  authorsList = paper.authors;\n} else if (typeof paper.authors === 'string' && paper.authors.trim() !== '') {\n  authorsList = paper.authors.split(',').map(a => a.trim()).filter(Boolean);\n} else {\n  authorsList = ['Unknown'];\n}\n\n// 2. Ensure embedding is a stringified JSON array or explicit null\nconst embeddingVector = Array.isArray(paper.embedding)\n  ? JSON.stringify(paper.embedding)\n  : (paper.embedding || null);\n\nreturn {\n  tier: paper.tier || 'Tier 1',\n  source: paper.source || 'manual',\n  arxiv_id: paper.arxiv_id || null,\n  doi: paper.doi || null,\n  title: paper.title || 'Untitled',\n  authors: JSON.stringify(authorsList), // JSON array string, e.g. '[\"Ada Lovelace\", \"Alan Turing\"]'\n  abstract: paper.abstract || '',\n  url: paper.url || (paper.arxiv_id ? `https://arxiv.org/abs/${paper.arxiv_id}` : null),\n  embedding: embeddingVector,\n  metadata: {\n    ingested_at: new Date().toISOString(),\n    source_type: paper.source || 'manual'\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4208,
+        352
+      ],
+      "id": "92b56cd9-c829-0961-188d-146799f9e6ef",
+      "name": "Normalize Paper Output"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "curate-paper",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        2640,
+        352
+      ],
+      "id": "3263448b-fde4-4461-d70c-5cbf1b41a877",
+      "name": "Curation",
+      "webhookId": "4cffab0d-b426-b3d4-2586-62b4de3fc4d9"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO paper_embeddings (tier, arxiv_id, doi, embedding, payload)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4::vector,\n    $5::jsonb\n)\nON CONFLICT (arxiv_id) WHERE arxiv_id IS NOT NULL \nDO UPDATE SET\n    tier = EXCLUDED.tier,\n    embedding = EXCLUDED.embedding,\n    payload = EXCLUDED.payload\nRETURNING id, arxiv_id, tier, payload->>'title' AS title;",
+        "options": {
+          "queryReplacement": "={{ $json.tier }},{{ $json.arxiv_id }},{{ $json.doi }},{{ $json.embedding }},{{ $json.payload }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        4880,
+        352
+      ],
+      "id": "28f5abd7-01e3-1b32-bb1c-16e208a225b3",
+      "name": "Update Paper DB",
+      "credentials": {
+        "postgres": {
+          "id": "pipelinePgCred01",
+          "name": "Pipeline Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function normalizeName(name) {\n  const parts = name.replace(/[^a-zA-Z\\s]/g, '').trim().split(/\\s+/);\n  if (parts.length === 0 || !parts[0]) return '';\n  if (parts.length === 1) return parts[0].toLowerCase();\n  \n  const lastName = parts[parts.length - 1].toLowerCase();\n  const firstInitial = parts[0][0].toLowerCase();\n  return `${firstInitial}_${lastName}`;\n}\n\nfunction parseAuthors(authors) {\n  if (!authors) return [];\n  if (Array.isArray(authors)) return authors;\n  if (typeof authors !== 'string') return [];\n\n  // 1. Try JSON parsing if it's a stringified JSON array\n  try {\n    const parsed = JSON.parse(authors);\n    if (Array.isArray(parsed)) return parsed;\n  } catch (e) {\n    // Not JSON, continue to fallback string parsing\n  }\n\n  // 2. Handle Postgres literal format {\"Author 1\", \"Author 2\"}\n  let str = authors.trim();\n  if (str.startsWith('{') && str.endsWith('}')) {\n    str = str.slice(1, -1);\n  }\n\n  // 3. Split by comma and strip quotes, brackets, braces, and trailing spaces\n  return str\n    .split(',')\n    .map(a => a.replace(/^[\\s\"\\[\\{]+|[\\s\"\\]\\}]+$/g, '').trim())\n    .filter(Boolean);\n}\n\nconst paper = $('Normalize Paper Output').item.json;\n\nif (paper.tier === 'Tier 3' || !paper.authors) {\n  return [];\n}\n\nconst targetTier = paper.tier;\nconst authorList = parseAuthors(paper.authors);\n\nreturn authorList\n  .map(cleanName => {\n    return {\n      json: {\n        author_name: cleanName,\n        normalized_name: normalizeName(cleanName),\n        tier: targetTier\n      }\n    };\n  })\n  .filter(item => item.json.normalized_name.length > 0);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5104,
+        352
+      ],
+      "id": "013bf7ed-d926-c457-4cc8-4a0af1c93d75",
+      "name": "Author Extraction & Tier Filter"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO known_authors (\n    author_name,\n    normalized_name,\n    tier\n) VALUES (\n    $1, $2, $3\n)\nON CONFLICT (normalized_name) DO UPDATE SET\n    tier = CASE \n        WHEN known_authors.tier = 'Tier 1' OR EXCLUDED.tier = 'Tier 1' THEN 'Tier 1'\n        ELSE EXCLUDED.tier\n    END\nRETURNING id, author_name, normalized_name, tier;",
+        "options": {
+          "queryReplacement": "={{ $json.author_name }},{{ $json.normalized_name }},{{ $json.tier }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        5328,
+        352
+      ],
+      "id": "3cce68f6-c167-0ad0-b1d9-ddeb4b2c735d",
+      "name": "Update Author DB",
+      "credentials": {
+        "postgres": {
+          "id": "pipelinePgCred01",
+          "name": "Pipeline Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const paper = $('Normalize Paper Output').item.json;\nconst vectorArray = $input.item.json.embedding;\n\n// Extract database top-level columns; bundle remaining metadata into payload\nconst { tier, arxiv_id, doi, ...metadata } = paper;\n\nreturn {\n  tier: tier || null,\n  arxiv_id: arxiv_id || null,\n  doi: doi || null,\n  embedding: JSON.stringify(vectorArray),\n  payload: JSON.stringify(metadata)\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4656,
+        352
+      ],
+      "id": "85270361-512b-970d-e6b7-6a5ee225e670",
+      "name": "Attach Vector to Metadata"
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MATTERMOST_CHANNEL_ID }}",
+        "message": "=[📥 Click Here to Curate & Ingest Paper]({{ $execution.resumeFormUrl }})",
+        "attachments": [
+          {}
+        ],
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        2864,
+        352
+      ],
+      "id": "5aea20d7-13b4-b844-2e49-cd96a462c3d2",
+      "name": "Send Curation Form Link",
+      "credentials": {
+        "mattermostApi": {
+          "id": "mattermostBot001",
+          "name": "Mattermost bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resume": "form",
+        "formTitle": "Paper Curation & Ingestion",
+        "formDescription": "=Select the appropriate target tier and verify paper metadata. Submitting will generate embeddings and automatically update author weights.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Target Tier",
+              "fieldType": "dropdown",
+              "defaultValue": "Tier 1",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Tier 1"
+                  },
+                  {
+                    "option": "Tier 2"
+                  },
+                  {
+                    "option": "Tier 3"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Input Mode",
+              "fieldType": "dropdown",
+              "defaultValue": "arXiv ID",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "arXiv ID"
+                  },
+                  {
+                    "option": "BibTeX"
+                  },
+                  {
+                    "option": "Manual Entry"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "arXiv Link or ID"
+            },
+            {
+              "fieldLabel": "BibTeX Entry"
+            },
+            {
+              "fieldLabel": "Paper Title"
+            },
+            {
+              "fieldLabel": "Authors"
+            },
+            {
+              "fieldLabel": "Abstract"
+            },
+            {
+              "fieldLabel": "DOI"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3088,
+        352
+      ],
+      "id": "b84fafc4-3146-c0fe-c02e-6496ca2294ee",
+      "name": "Curation Form Node",
+      "webhookId": "04986dde-e263-86b9-2443-ce5297dd77fd"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json[\"Input Mode\"] }}",
+                    "rightValue": "arXiv ID",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "38eecf71-3b1c-4aa1-ad77-43951e5d11e3"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json[\"Input Mode\"] }}",
+                    "rightValue": "BibTeX",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "eb07f4b4-fbff-45b7-a22d-f4625c793c48"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json[\"Input Mode\"] }}",
+                    "rightValue": "Manual Entry",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "9186a702-8747-4ffa-bc08-f42143159143"
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        3312,
+        336
+      ],
+      "id": "2a2e45ae-2b2b-b1e7-b44c-a4daeed119db",
+      "name": "Input Mode Selection"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\nconst rawInput = input[\"arXiv Link or ID\"] || '';\nconst match = rawInput.match(/(\\d{4}\\.\\d{4,5}|[a-z\\-]+(?:\\.[A-Z]{2})?\\/\\d{7})/);\n\nif (!match) {\n  throw new Error(\"Could not extract a valid arXiv ID from input.\");\n}\n\nreturn {\n  clean_id: match[1],\n  tier: input[\"Target Tier\"] || 'Tier 1',\n  doi: input[\"DOI\"] || null\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3536,
+        160
+      ],
+      "id": "1fee2abe-351f-4b13-2993-e35cb5387805",
+      "name": "Clean arXiv ID"
+    },
+    {
+      "parameters": {
+        "url": "=https://export.arxiv.org/api/query?id_list={{ $json.clean_id }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3760,
+        160
+      ],
+      "id": "06808e9c-c79e-31f5-49c9-d86d734b311d",
+      "name": "arXiv Metadata"
+    },
+    {
+      "parameters": {
+        "jsCode": "const xml = $input.item.json.data || $input.item.json.body || '';\nconst parentData = $('Clean arXiv ID').item.json;\nconst cleanId = parentData.clean_id;\n\nconst titleMatch = xml.match(/<entry>[\\s\\S]*?<title>([\\s\\S]*?)<\\/title>/);\nconst title = titleMatch ? titleMatch[1].replace(/\\s+/g, ' ').trim() : '';\n\nconst abstractMatch = xml.match(/<entry>[\\s\\S]*?<summary>([\\s\\S]*?)<\\/summary>/);\nconst abstract = abstractMatch ? abstractMatch[1].replace(/\\s+/g, ' ').trim() : '';\n\nconst authorMatches = [...xml.matchAll(/<author>[\\s\\S]*?<name>([\\s\\S]*?)<\\/name>/g)];\nconst authors = authorMatches.map(m => m[1].trim()).join(', ');\n\nif (!title) {\n  throw new Error(`No paper details found for arXiv ID: ${cleanId}`);\n}\n\nreturn {\n  title,\n  authors,\n  abstract,\n  arxiv_id: cleanId,\n  doi: parentData.doi || null,\n  tier: parentData.tier || 'Tier 1',\n  source: 'arxiv',\n  url: `https://arxiv.org/abs/${cleanId}`\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3984,
+        160
+      ],
+      "id": "cf34fbb3-7f67-01a8-a907-984d3f0df1a8",
+      "name": "arXiv Paper"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\nconst rawBibtex = input[\"BibTeX Entry\"] || '';\n\nfunction getBibField(field, text) {\n  const fieldRegex = new RegExp(`\\\\b${field}\\\\s*=\\\\s*`, 'i');\n  const match = text.match(fieldRegex);\n  if (!match) return '';\n  \n  const startIdx = match.index + match[0].length;\n  const char = text[startIdx];\n  \n  if (char === '{') {\n    let depth = 0;\n    for (let i = startIdx; i < text.length; i++) {\n      if (text[i] === '{') depth++;\n      else if (text[i] === '}') depth--;\n      \n      if (depth === 0) {\n        return text.slice(startIdx + 1, i).replace(/\\s+/g, ' ').trim();\n      }\n    }\n  } else if (char === '\"') {\n    const endIdx = text.indexOf('\"', startIdx + 1);\n    if (endIdx !== -1) {\n      return text.slice(startIdx + 1, endIdx).replace(/\\s+/g, ' ').trim();\n    }\n  } else {\n    const endMatch = text.slice(startIdx).match(/^([^,}]+)/);\n    if (endMatch) return endMatch[1].replace(/\\s+/g, ' ').trim();\n  }\n  return '';\n}\n\nfunction cleanText(text) {\n  if (!text) return '';\n  return text\n    .replace(/\\\\['\"`^~v=.c]?\\{?([a-zA-Z])\\}?/g, '$1') // Normalize LaTeX accents\n    .replace(/[{}]/g, '')                             // Strip braces\n    .replace(/\\\\/g, '')                              // Strip remaining backslashes\n    .replace(/\\s+/g, ' ')                            // Normalize spaces\n    .trim();\n}\n\nfunction formatAuthorName(author) {\n  const clean = cleanText(author);\n  if (clean.includes(',')) {\n    const parts = clean.split(',').map(p => p.trim()).filter(Boolean);\n    const lastName = parts[0];\n    const firstNames = parts.slice(1).join(' ');\n    return firstNames ? (firstNames + ' ' + lastName) : lastName;\n  }\n  return clean;\n}\n\nconst title = cleanText(getBibField('title', rawBibtex));\nconst rawAuthors = getBibField('author', rawBibtex) || getBibField('authors', rawBibtex) || 'Unknown';\nconst authors = rawAuthors.split(/\\s+and\\s+/i).map(formatAuthorName).join(', ');\nconst abstract = cleanText(getBibField('abstract', rawBibtex));\n\nlet arxiv_id = getBibField('eprint', rawBibtex);\nif (!arxiv_id) {\n  const idMatch = rawBibtex.match(/(\\d{4}\\.\\d{4,5}|[a-z\\-]+(?:\\.[A-Z]{2})?\\/\\d{7})/);\n  arxiv_id = idMatch ? idMatch[1] : null;\n}\n\nconst doi = input[\"DOI\"] || getBibField('doi', rawBibtex) || null;\n\nif (!title) {\n  throw new Error(\"Could not parse a valid 'title' from the BibTeX string. Check format.\");\n}\n\nreturn {\n  title,\n  authors,\n  abstract: abstract || \"No abstract provided.\",\n  arxiv_id,\n  doi,\n  tier: input[\"Target Tier\"] || 'Tier 1',\n  source: 'bibtex',\n  url: arxiv_id \n    ? `https://arxiv.org/abs/${arxiv_id}` \n    : (doi ? `https://doi.org/${doi}` : null)\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3984,
+        352
+      ],
+      "id": "102f4c9f-b858-0932-e14e-29c8ba863edb",
+      "name": "BibTeX Paper"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.item.json;\n\nreturn {\n  title: (input[\"Paper Title\"] || '').trim(),\n  authors: (input[\"Authors\"] || 'Unknown').trim(),\n  abstract: (input[\"Abstract\"] || '').trim(),\n  arxiv_id: (input[\"arXiv Link or ID\"] || '').trim() || null,\n  doi: (input[\"DOI\"] || '').trim() || null,\n  tier: input[\"Target Tier\"] || 'Tier 1',\n  source: 'manual',\n  url: null\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3984,
+        544
+      ],
+      "id": "20e77a57-6f0c-a86f-78d5-e611f356c294",
+      "name": "Manual Paper"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OLLAMA_URL }}/api/embeddings",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: $env.EMBEDDING_MODEL,\n  prompt: `Title: ${$json.title}\\n\\nAbstract: ${$json.abstract}`\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4432,
+        352
+      ],
+      "id": "02897c07-e7b8-567e-6987-94344ddf2b30",
+      "name": "Embedding"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const translator = String($env.ZOTERO_TRANSLATOR_URL || 'http://zotero-translator:1969').match(/^https?:\\/\\/([^:\\/]+)(?::(\\d+))?/) || [];\nconst http = require('http');\n\n// 1. Build a resilient fallback cascade to get a clean identifier Zotero loves\n// Checks for native Postgres snake_case, camelCase, or Semantic Scholar API nested IDs\nconst identifier = $json.doi \n  || $json.arxiv_id \n  || $json.arxivId \n  || ($json.externalIds ? $json.externalIds.ArXiv : null);\n\n// 2. Guard Clause: If no valid ID exists, or it's a Semantic Scholar URL, exit gracefully\nif (!identifier || String(identifier).includes('semanticscholar.org')) {\n  return { \n    json: { \n      success: false, \n      reason: \"Skipped: No clean DOI or arXiv ID available for Zotero translation.\" \n    } \n  };\n}\n\nconst fetchMetadata = (id) => {\n  return new Promise((resolve, reject) => {\n    const payload = String(id).trim();\n    \n    const options = {\n      hostname: translator[1],\n      port: Number(translator[2] || 80),\n      path: '/search',\n      method: 'POST',\n      headers: {\n        'Content-Type': 'text/plain',\n        'Content-Length': Buffer.byteLength(payload)\n      }\n    };\n\n    const req = http.request(options, (res) => {\n      let rawData = '';\n      res.setEncoding('utf8');\n      res.on('data', (chunk) => { rawData += chunk; });\n      \n      res.on('end', () => {\n        try {\n          if (res.statusCode !== 200) {\n            return reject(new Error(`Zotero translation server returned status ${res.statusCode}`));\n          }\n          const parsedData = JSON.parse(rawData);\n          resolve(parsedData[0] || parsedData);\n        } catch (e) {\n          reject(e);\n        }\n      });\n    });\n\n    req.on('error', (e) => reject(e));\n    req.write(payload);\n    req.end();\n  });\n};\n\ntry {\n  const result = await fetchMetadata(identifier);\n\n  if (result && typeof result === 'object') {\n    result.collections = [$env.ZOTERO_COLLECTION_KEY];\n  }\n  \n  return { json: { success: true, data: result } };\n} catch (error) {\n  // Return the error as data instead of crashing the whole workflow execution thread\n  return { \n    json: { \n      success: false, \n      error: error.message,\n      attemptedIdentifier: identifier\n    } \n  };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1904,
+        640
+      ],
+      "id": "3337d48c-3f51-da0c-8127-760c34c532fb",
+      "name": "Prepare for Zotero"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.zotero.org/{{ $env.ZOTERO_LIBRARY_TYPE }}/{{ $env.ZOTERO_LIBRARY_ID }}/items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "JSON",
+        "body": "={{ JSON.stringify([$json]) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2128,
+        640
+      ],
+      "id": "2b407ba3-935a-44e7-2f24-d9160bec071b",
+      "name": "Zotero Upload",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zoteroApiCred001",
+          "name": "Zotero API key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function normalizeName(name) {\n  const parts = name.replace(/[^a-zA-Z\\s]/g, '').trim().split(/\\s+/);\n  if (parts.length === 0 || !parts[0]) return '';\n  if (parts.length === 1) return parts[0].toLowerCase();\n  \n  const lastName = parts[parts.length - 1].toLowerCase();\n  const firstInitial = parts[0][0].toLowerCase();\n  return `${firstInitial}_${lastName}`;\n}\n\nfunction parseAuthors(authors) {\n  if (!authors) return [];\n  if (Array.isArray(authors)) return authors;\n  if (typeof authors !== 'string') return [];\n\n  try {\n    const parsed = JSON.parse(authors);\n    if (Array.isArray(parsed)) return parsed;\n  } catch (e) {}\n\n  let str = authors.trim();\n  if (str.startsWith('{') && str.endsWith('}')) {\n    str = str.slice(1, -1);\n  }\n\n  return str\n    .split(',')\n    .map(a => a.replace(/^[\\s\"\\[\\{]+|[\\s\"\\]\\}]+$/g, '').trim())\n    .filter(Boolean);\n}\n\n// 1. Grab input directly from the preceding Wait Form node\nconst formData = $input.first().json;\n\n// Extract values from form keys\nconst rawNameInput = formData['Name'] || formData.name || '';\nconst targetTier = formData['Target Tier'] || formData.tier || 'Tier 2';\n\nif (!rawNameInput) {\n  return [];\n}\n\nconst authorList = parseAuthors(rawNameInput);\n\nreturn authorList\n  .map(cleanName => {\n    const norm = normalizeName(cleanName);\n    return {\n      json: {\n        author_name: cleanName,\n        normalized_name: norm,\n        tier: targetTier\n      }\n    };\n  })\n  .filter(item => item.json.normalized_name.length > 0);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3344,
+        816
+      ],
+      "id": "56e32443-aa65-0429-91ed-43d32a82bc94",
+      "name": "Author Extraction & Tier Filter1"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO known_authors (\n    author_name,\n    normalized_name,\n    tier\n) VALUES (\n    $1, $2, $3\n)\nON CONFLICT (normalized_name) DO UPDATE SET\n    tier = CASE \n        WHEN known_authors.tier = 'Tier 1' OR EXCLUDED.tier = 'Tier 1' THEN 'Tier 1'\n        ELSE EXCLUDED.tier\n    END\nRETURNING id, author_name, normalized_name, tier;",
+        "options": {
+          "queryReplacement": "={{ $json.author_name }},{{ $json.normalized_name }},{{ $json.tier }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        3568,
+        816
+      ],
+      "id": "d4507fad-abf4-4dd0-e9e2-3384ebe123aa",
+      "name": "Update Author DB1",
+      "credentials": {
+        "postgres": {
+          "id": "pipelinePgCred01",
+          "name": "Pipeline Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "curate-author",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        2640,
+        816
+      ],
+      "id": "159cd777-64da-080c-cfb0-d9e95f17c1c5",
+      "name": "Curation authors",
+      "webhookId": "1f512dff-0818-8a8b-05d8-660b300c42b6"
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MATTERMOST_CHANNEL_ID }}",
+        "message": "=[📥 Click Here to add an author to the Curation]({{ $execution.resumeFormUrl }})",
+        "attachments": [
+          {}
+        ],
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        2864,
+        816
+      ],
+      "id": "e2b1733f-e7aa-3636-20c6-9f572bdd7957",
+      "name": "Send Curation Author Form Link",
+      "credentials": {
+        "mattermostApi": {
+          "id": "mattermostBot001",
+          "name": "Mattermost bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resume": "form",
+        "formTitle": "Add Author to Curation",
+        "formDescription": "=Select the appropriate target tier and unfiy author name.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Target Tier",
+              "fieldType": "dropdown",
+              "defaultValue": "Tier 2",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Tier 1"
+                  },
+                  {
+                    "option": "Tier 2"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Name"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3088,
+        816
+      ],
+      "id": "96b140de-71af-70f8-4de4-a3553d5941f7",
+      "name": "Curation Author Form",
+      "webhookId": "7fe3c496-32c9-b2d9-4cb6-e986b217dec5"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "list-curation",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        2656,
+        1200
+      ],
+      "id": "2fdee003-7a78-38a7-e661-a9af8f7d28e5",
+      "name": "List Curation Webhook",
+      "webhookId": "d2331c1e-527b-444a-5428-8ea52df2f397"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n    arxiv_id, \n    doi, \n    tier, \n    payload->>'title' AS title \nFROM paper_embeddings \nORDER BY id DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2880,
+        1088
+      ],
+      "id": "c39a6bfa-df1a-4739-64ca-56cf662e864f",
+      "name": "Fetch Papers",
+      "credentials": {
+        "postgres": {
+          "id": "pipelinePgCred01",
+          "name": "Pipeline Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT author_name, normalized_name, tier FROM known_authors ORDER BY tier ASC, author_name ASC LIMIT 100;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2880,
+        1296
+      ],
+      "id": "da0f9eac-1973-5a3e-6ff4-aa503ba74251",
+      "name": "Fetch Known Authors",
+      "credentials": {
+        "postgres": {
+          "id": "pipelinePgCred01",
+          "name": "Pipeline Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Helper function to extract a valid string value, filtering out \"null\", \"undefined\", etc.\nfunction cleanVal(val) {\n  if (val === null || val === undefined) return '';\n  const str = String(val).trim();\n  if (str === '' || str.toLowerCase() === 'null' || str.toLowerCase() === 'undefined') {\n    return '';\n  }\n  return str;\n}\n\n// 1. Ingest input array\nconst rawData = $input.all().map(item => item.json);\n\n// Separate items into Papers and Authors dynamically\nconst papers = rawData.filter(item => item.title !== undefined);\nconst authors = rawData.filter(item => item.author_name !== undefined);\n\n// 2. Build Papers Markdown Table\nlet paperMarkdown = '### 📚 Curated Papers\\n';\nif (papers.length === 0) {\n  paperMarkdown += '*No papers found in database.*\\n\\n';\n} else {\n  paperMarkdown += '| Identifier | Tier | Title |\\n| :--- | :--- | :--- |\\n';\n  papers.forEach(p => {\n    const arxivId = cleanVal(p.arxiv_id);\n    const doi = cleanVal(p.doi);\n\n    // Priority: arXiv ID -> DOI -> N/A\n    let id = 'N/A';\n    if (arxivId !== '') {\n      id = arxivId;\n    } else if (doi !== '') {\n      id = doi;\n    }\n\n    const tier = cleanVal(p.tier) || 'N/A';\n    const title = (cleanVal(p.title) || 'Untitled').replace(/\\|/g, '\\\\|');\n    paperMarkdown += `| ${id} | ${tier} | ${title} |\\n`;\n  });\n  paperMarkdown += '\\n';\n}\n\n// 3. Build Authors Markdown Table\nlet authorMarkdown = '### 👤 Known Authors\\n';\nif (authors.length === 0) {\n  authorMarkdown += '*No known authors found in database.*\\n';\n} else {\n  authorMarkdown += '| Author Name | Normalized | Tier |\\n| :--- | :--- | :--- |\\n';\n  authors.forEach(a => {\n    const name = (cleanVal(a.author_name) || 'N/A').replace(/\\|/g, '\\\\|');\n    const norm = cleanVal(a.normalized_name) || 'N/A';\n    const tier = cleanVal(a.tier) || 'N/A';\n    authorMarkdown += `| ${name} | ${norm} | ${tier} |\\n`;\n  });\n}\n\nconst fullMessage = paperMarkdown + authorMarkdown;\n\nreturn [{\n  json: {\n    response_type: 'in_channel',\n    text: fullMessage\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3328,
+        1184
+      ],
+      "id": "65e42e10-bf60-b97a-7142-1d5734697f25",
+      "name": "Build Mattermost Tables"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3552,
+        1184
+      ],
+      "id": "9c33e9bb-c021-22b9-b895-a4e209ea3314",
+      "name": "Respond to Mattermost"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3104,
+        1184
+      ],
+      "id": "036b01a5-3193-3a65-7fae-77c6edc0e3f4",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $('Clean HTML Transcript').first().json.channel_id || $env.MATTERMOST_CHANNEL_ID }}",
+        "message": "=### 💡 Deep-Dive Explanation: **{{ $('Clean HTML Transcript').first().json.title }}**\n\n{{ $json.text || $json.output || 'Unable to generate synthesis.' }}\n{{ $('Clean HTML Transcript').first().json.paper_link ? '\\n\\n📄 **Associated Paper:** [Read on arXiv/Web](' + $('Clean HTML Transcript').first().json.paper_link + ')' : '' }}\n\n---\n*Search Intent:* `{{ $('Clean HTML Transcript').first().json.query }}`",
+        "attachments": [],
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        7184,
+        720
+      ],
+      "id": "3d524506-1e25-d28a-cedf-9690d7fb187f",
+      "name": "Post Explanation to Channel",
+      "credentials": {
+        "mattermostApi": {
+          "id": "mattermostBot001",
+          "name": "Mattermost bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.LLM_MODEL_EXPLAIN }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        6880,
+        912
+      ],
+      "id": "922e33e8-5d7b-e58f-083e-20484d96caee",
+      "name": "Explain Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "llmGatewayCred01",
+          "name": "LLM gateway (Ollama API)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert AI research assistant analyzing a podcast transcript for a researcher.\n\nUser Search Intent: \"{{ $json.query }}\"\nEpisode Title: \"{{ $json.title }}\"\n\nTranscript Content:\n---\n{{ $json.cleanTranscript }}\n---\n\nProvide an in-depth, structured breakdown:\n1. **Direct Answer & Relevance**: How does this episode/paper specifically address the researcher's query (\"{{ $json.query }}\")?\n2. **Core Insights**: 3 key theoretical or practical takeaways from this work.\n3. **Key Discussion Point**: What is the most critical argument, finding, or method discussed in this transcript?",
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        6880,
+        720
+      ],
+      "id": "e7a7541a-22ec-bd92-4aba-ff75f8aaebed",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "jsCode": "const context = $('Extract Callback Context').first().json;\nconst rawHtml = $input.first().json.data || $input.first().json.body || '';\n\nlet cleanTranscript = '';\nif (typeof rawHtml === 'string') {\n  cleanTranscript = rawHtml\n    .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\n// If fetch failed or returned 404, fall back to vector chunk snippet\nif (cleanTranscript.length < 50) {\n  cleanTranscript = context.snippet || 'No transcript available.';\n}\n\n// Safety context limit for LLM\nif (cleanTranscript.length > 25000) {\n  cleanTranscript = cleanTranscript.slice(0, 25000) + '... [Transcript truncated]';\n}\n\nreturn [{\n  json: {\n    query: context.query,\n    title: context.title,\n    paper_link: context.paper_link,\n    channel_id: context.channel_id,\n    cleanTranscript: cleanTranscript\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6672,
+        720
+      ],
+      "id": "ede3c319-5f18-c105-d0f6-52f40d4052db",
+      "name": "Clean HTML Transcript"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.transcript_url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 8000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6464,
+        720
+      ],
+      "id": "12141e58-c79d-87fe-95bb-07e3101f9e41",
+      "name": "Fetch Full Transcript",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const pub = String($env.PODCAST_PUBLIC_URL || '').replace(/\\/+$/, '');\nconst internal = String($env.PODCAST_INTERNAL_URL || '').replace(/\\/+$/, '');\nconst toInternal = (u) => (pub && internal && u.startsWith(pub)) ? internal + u.slice(pub.length) : u;\n\nconst body = $json.body || {};\nconst context = body.context || {};\n\nreturn [{\n  json: {\n    query: context.query || 'Podcast query',\n    title: context.title || 'Episode',\n    paper_link: context.paper_link || '',\n    // Fetch transcripts over the internal Docker network instead of the public URL\n    transcript_url: toInternal(context.transcript_url || ''),\n    snippet: context.snippet || '',\n    channel_id: context.channel_id || body.channel_id || $env.MATTERMOST_CHANNEL_ID\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6256,
+        720
+      ],
+      "id": "c84cb027-9ad0-0196-0bf1-9242cb17b0a4",
+      "name": "Extract Callback Context"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "llm-search-harder",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        6048,
+        720
+      ],
+      "id": "da624554-2336-8113-a7a7-4d70ba9dcbd6",
+      "name": "LLM Search",
+      "webhookId": "cae9aed5-cb09-1298-da4e-47d6e8aa4fad"
+    },
+    {
+      "parameters": {
+        "jsCode": "const params = $('Normalize Search Params').first().json;\nconst rawItems = $input.all();\n\nconst query = params.query;\nconst channelId = params.channelId || $env.MATTERMOST_CHANNEL_ID;\nconst hook = String($env.WEBHOOK_URL || '').replace(/\\/+$/, '') + '/webhook';\nconst offset = params.offset || 0;\nconst postId = params.postId || '';\nconst limit = 3;\n\n// 1. Unpack Qdrant LangChain nested document structure\nconst normalizedItems = rawItems.map(item => {\n  const doc = item.json.document || item.json;\n  const metadata = doc.metadata || item.json.metadata || {};\n  const pageContent = (doc.pageContent || item.json.pageContent || '').trim();\n  const score = item.json.score !== undefined ? item.json.score : doc.score;\n\n  return {\n    pageContent,\n    metadata,\n    score: score || 0\n  };\n});\n\n// 2. Filter out empty items\nconst validRaw = normalizedItems.filter(item => item.pageContent.length > 10);\n\n// 3. Deduplicate / Group by Paper\nconst uniquePapersMap = new Map();\n\nfor (const item of validRaw) {\n  const metadata = item.metadata || {};\n  const snippet = item.pageContent;\n\n  const arxivMatch = (metadata.title || snippet).match(/arXiv:\\s*(\\d{4}\\.\\d{4,5})/i);\n  const arxivId = metadata.arxiv_id || (arxivMatch ? arxivMatch[1] : null);\n\n  let title = metadata.title;\n  if (!title || metadata.source === 'blob') {\n    const titleMatch = snippet.match(/^(Briefing|Breakdown|Deep Dive)\\s*-\\s*([^\\n(]+)/i);\n    if (titleMatch) {\n      const cleanTitlePart = titleMatch[2].replace(/-\\s*Transcript.*/i, '').trim();\n      title = `${titleMatch[1]} - ${cleanTitlePart}`;\n    } else if (arxivId) {\n      title = `arXiv:${arxivId} Episode`;\n    } else {\n      continue;\n    }\n  }\n\n  const dedupeKey = arxivId ? `arxiv_${arxivId}` : `title_${title.toLowerCase()}`;\n  const tldr = metadata.tldr || metadata.description || '';\n\n  if (!uniquePapersMap.has(dedupeKey)) {\n    uniquePapersMap.set(dedupeKey, {\n      title,\n      arxivId,\n      metadata,\n      tldr,\n      bestScore: item.score,\n      bestSnippet: snippet\n    });\n  } else {\n    const existing = uniquePapersMap.get(dedupeKey);\n    const isMoreInformativeChunk = snippet.length > 120 && existing.bestSnippet.length < 120;\n    const isHigherScore = item.score > existing.bestScore;\n\n    if (isHigherScore) {\n      existing.bestScore = item.score;\n    }\n    if (isMoreInformativeChunk || (isHigherScore && snippet.length > 100)) {\n      existing.bestSnippet = snippet;\n    }\n    if (!existing.tldr && tldr) {\n      existing.tldr = tldr;\n    }\n  }\n}\n\nconst validResults = Array.from(uniquePapersMap.values());\nconst totalResults = validResults.length;\n\nif (totalResults === 0) {\n  return [{\n    json: {\n      postId: postId,\n      channelId: channelId,\n      message: `⚠️ No matching podcast episodes found for **\"${query}\"**.`,\n      attachments: []\n    }\n  }];\n}\n\n// 4. Slice for current page\nconst pageResults = validResults.slice(offset, offset + limit);\n\n// 5. Build Mattermost attachment cards\nconst attachments = pageResults.map((paper, idx) => {\n  const itemNum = offset + idx + 1;\n  const metadata = paper.metadata || {};\n  const snippet = paper.bestSnippet;\n  const arxivId = paper.arxivId;\n  const title = paper.title;\n\n  const paperLink = metadata.link || (arxivId ? `https://arxiv.org/abs/${arxivId}` : null);\n  const transcriptUrl = metadata.transcript_url || '';\n  const scoreBadge = paper.bestScore ? `*(Match Score: ${(paper.bestScore * 100).toFixed(0)}%)*` : '';\n\n  // Get TL;DR (prevent raw chunk fallback that prints titles)\n  let tldr = paper.tldr || metadata.tldr || metadata.description;\n  if (!tldr || tldr.trim() === '') {\n    const tldrMatch = snippet.match(/(?:TL;?DR|Summary)[:\\s\\-]+([^.]+?\\.)/i);\n    tldr = tldrMatch ? tldrMatch[1].trim() : 'No summary available.';\n  }\n\n  const linkRow = paperLink ? `[📄 View Paper](${paperLink})` : '';\n\n  const actions = [\n    {\n      id: `explain_${idx}`,\n      name: \"💡 Explain\",\n      type: \"button\",\n      integration: {\n        url: `${hook}/llm-search-harder`,\n        context: {\n          query: query,\n          title: title,\n          paper_link: paperLink || '',\n          transcript_url: transcriptUrl,\n          snippet: snippet,\n          channel_id: channelId\n        }\n      }\n    }\n  ];\n\n  return {\n    color: \"#1665D8\",\n    title: `🎙️ #${itemNum}: ${title}`,\n    title_link: paperLink || '',\n    text: `**TL;DR:** ${tldr}\\n\\n${scoreBadge}${linkRow ? `\\n\\n${linkRow}` : ''}`,\n    actions: actions\n  };\n});\n\n// 6. Pagination Button\nconst nextOffset = offset + limit;\nif (nextOffset < totalResults) {\n  const remaining = totalResults - nextOffset;\n  const nextBatchCount = Math.min(limit, remaining);\n\n  attachments.push({\n    color: \"#28A745\",\n    title: `⏩ More Matches Available`,\n    text: `Showing ${offset + 1}–${offset + pageResults.length} of ${totalResults} unique papers.`,\n    actions: [\n      {\n        id: \"load_next_results\",\n        name: `⏩ Load Next ${nextBatchCount} Papers`,\n        type: \"button\",\n        integration: {\n          url: `${hook}/mattermost-search-paginate`,\n          context: {\n            query: query,\n            channel_id: channelId,\n            offset: nextOffset\n          }\n        }\n      }\n    ]\n  });\n}\n\nconst headerText = offset === 0 \n  ? `🔍 **Top Search Results for:** \"${query}\" (1–${pageResults.length} of ${totalResults} papers)`\n  : `🔍 **Search Results for:** \"${query}\" (${offset + 1}–${offset + pageResults.length} of ${totalResults} papers)`;\n\nreturn [{\n  json: {\n    postId: postId,\n    channelId: channelId,\n    message: headerText,\n    attachments: attachments\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6816,
+        272
+      ],
+      "id": "0831c262-8599-b9e4-5249-c0368c61c5c9",
+      "name": "Build Mattermost Response"
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.EMBEDDING_MODEL }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        6560,
+        480
+      ],
+      "id": "440b5aa0-ff4b-00cf-3a10-c0db6120fa1e",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "ollamaEmbedCred1",
+          "name": "Ollama (embeddings)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "load",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "podcasts",
+          "mode": "list",
+          "cachedResultName": "podcasts"
+        },
+        "prompt": "={{ $json.query }}",
+        "topK": 25,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        6464,
+        272
+      ],
+      "id": "e2951c57-1d41-d267-2b0b-54655ecc9084",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "qdrantApiCred001",
+          "name": "Qdrant"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || {};\nconst context = body.context || {};\n\nconst query = body.text || context.query || '';\nconst channelId = body.channel_id || context.channel_id || '';\nconst offset = parseInt(context.offset || 0, 10);\nconst postId = body.post_id || context.post_id || '';\n\nreturn [{\n  json: {\n    query,\n    channelId,\n    offset,\n    postId\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6272,
+        272
+      ],
+      "id": "f7339767-95c1-2651-b87d-ee5e206a4487",
+      "name": "Normalize Search Params"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mattermost-search-paginate",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        6032,
+        368
+      ],
+      "id": "c2d6d417-5244-8ea2-0acd-0298cdfda879",
+      "name": "Paginate",
+      "webhookId": "6dd1e2d6-68e5-321b-3cfb-94e2b7f3f6d8"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "paper-search",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        6032,
+        192
+      ],
+      "id": "5b50e483-e737-98e6-5a41-e5f95931688c",
+      "name": "Search",
+      "webhookId": "ca24c4c4-5670-2a5f-532e-b123fcb5f4af"
+    },
+    {
+      "parameters": {
+        "method": "={{ $json.postId ? 'PUT' : 'POST' }}",
+        "url": "={{ $env.MATTERMOST_URL.replace(/\\/+$/, '') + '/api/v4/posts' + ($json.postId ? '/' + $json.postId : '') }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "mattermostApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  JSON.stringify({\n    id: $json.postId || undefined,\n    channel_id: $json.channelId,\n    message: $json.message,\n    props: {\n      attachments: $json.attachments\n    }\n  })\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        7024,
+        272
+      ],
+      "id": "bbe300dd-a2e1-bb67-4019-9e6c528b9c42",
+      "name": "Post Search Results",
+      "credentials": {
+        "mattermostApi": {
+          "id": "mattermostBot001",
+          "name": "Mattermost bot"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Briefing": {
+      "main": [
+        [
+          {
+            "node": "Generate Briefing",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Breakdown": {
+      "main": [
+        [
+          {
+            "node": "Generate Breakdown",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Breakdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deep Dive": {
+      "main": [
+        [
+          {
+            "node": "Generate Deep Dive",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify Deep Dive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Overflow": {
+      "main": [
+        [
+          {
+            "node": "Read & Format Queue",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read & Format Queue": {
+      "main": [
+        [
+          {
+            "node": "Podcast Paper Card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Overflow Callback": {
+      "main": [
+        [
+          {
+            "node": "Splice File & Mutate State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Splice File & Mutate State": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Generate Briefing (Overflow)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare for Zotero",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Paper Output": {
+      "main": [
+        [
+          {
+            "node": "Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Curation": {
+      "main": [
+        [
+          {
+            "node": "Send Curation Form Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Paper DB": {
+      "main": [
+        [
+          {
+            "node": "Author Extraction & Tier Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Author Extraction & Tier Filter": {
+      "main": [
+        [
+          {
+            "node": "Update Author DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Vector to Metadata": {
+      "main": [
+        [
+          {
+            "node": "Update Paper DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Curation Form Link": {
+      "main": [
+        [
+          {
+            "node": "Curation Form Node",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Curation Form Node": {
+      "main": [
+        [
+          {
+            "node": "Input Mode Selection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Mode Selection": {
+      "main": [
+        [
+          {
+            "node": "Clean arXiv ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "BibTeX Paper",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Manual Paper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean arXiv ID": {
+      "main": [
+        [
+          {
+            "node": "arXiv Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "arXiv Metadata": {
+      "main": [
+        [
+          {
+            "node": "arXiv Paper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "arXiv Paper": {
+      "main": [
+        [
+          {
+            "node": "Normalize Paper Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BibTeX Paper": {
+      "main": [
+        [
+          {
+            "node": "Normalize Paper Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Paper": {
+      "main": [
+        [
+          {
+            "node": "Normalize Paper Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embedding": {
+      "main": [
+        [
+          {
+            "node": "Attach Vector to Metadata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare for Zotero": {
+      "main": [
+        [
+          {
+            "node": "Zotero Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Author Extraction & Tier Filter1": {
+      "main": [
+        [
+          {
+            "node": "Update Author DB1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Curation authors": {
+      "main": [
+        [
+          {
+            "node": "Send Curation Author Form Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Curation Author Form Link": {
+      "main": [
+        [
+          {
+            "node": "Curation Author Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Curation Author Form": {
+      "main": [
+        [
+          {
+            "node": "Author Extraction & Tier Filter1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Curation Webhook": {
+      "main": [
+        [
+          {
+            "node": "Fetch Papers",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Known Authors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Papers": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Known Authors": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Build Mattermost Tables": {
+      "main": [
+        [
+          {
+            "node": "Respond to Mattermost",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Build Mattermost Tables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Post Explanation to Channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean HTML Transcript": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Full Transcript": {
+      "main": [
+        [
+          {
+            "node": "Clean HTML Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Callback Context": {
+      "main": [
+        [
+          {
+            "node": "Fetch Full Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LLM Search": {
+      "main": [
+        [
+          {
+            "node": "Extract Callback Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Mattermost Response": {
+      "main": [
+        [
+          {
+            "node": "Post Search Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store": {
+      "main": [
+        [
+          {
+            "node": "Build Mattermost Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Search Params": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Paginate": {
+      "main": [
+        [
+          {
+            "node": "Normalize Search Params",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search": {
+      "main": [
+        [
+          {
+            "node": "Normalize Search Params",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Explain Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Podcast Upload Form": {
+      "main": [
+        [
+          {
+            "node": "Generate from File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify File Podcast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Podcast Form Command": {
+      "main": [
+        [
+          {
+            "node": "Send Podcast Form Link",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Podcast Form Link": {
+      "main": [
+        [
+          {
+            "node": "Podcast Upload Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "rhV3vPpq1DSy2Y3E",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

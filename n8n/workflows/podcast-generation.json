@@ -1,0 +1,1823 @@
+{
+  "id": "RDinGXe0wJt4PzQq",
+  "name": "Podcasts Generation",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "=https://arxiv.org/html/{{ $json.arxivID }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "={{ $env.HTTP_USER_AGENT }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -64,
+        272
+      ],
+      "id": "fe7006c3-1c1e-466e-238b-c5a36cda55d6",
+      "name": "Fetch arXiv HTML",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turn the arXiv HTML rendering into plain text.\nconst raw = String($input.first().json.data || '');\nconst decode = (s) => s\n  .replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>')\n  .replace(/&quot;/g, '\"').replace(/&#39;|&#x27;|&apos;/g, \"'\")\n  .replace(/&#(\\d+);/g, (_, d) => String.fromCodePoint(Number(d)))\n  .replace(/&#x([0-9a-f]+);/gi, (_, x) => String.fromCodePoint(parseInt(x, 16)))\n  .replace(/&amp;/g, '&');\n\n// Drop structural blocks (scripts, styles, header, footer, nav)\nconst html = raw.replace(/<(script|style|header|footer|nav)\\b[\\s\\S]*?<\\/\\1>/gi, '');\nconst titleMatch = html.match(/<title[^>]*>([^<]+)<\\/title>/i);\nconst title = titleMatch ? decode(titleMatch[1].trim()) : 'arXiv Paper';\nconst fullText = decode(html.replace(/<[^>]+>/g, ' ')).replace(/\\s+/g, ' ').trim();\n\nreturn [{ json: { title, fullText } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        208
+      ],
+      "id": "61dc4740-30da-23b6-8fd0-6a947b96cf43",
+      "name": "Extract Text"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TTS_URL }}/podcast",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "title",
+              "value": "={{ $('INPUT').item.json.podcast_type }} - {{ $('Paper').item.json.title }} {{ $('Paper').item.json.arxivID }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $input.all()[0].json.text }}"
+            },
+            {
+              "name": "tldr",
+              "value": "={{ $input.all()[1].json.tldr }}"
+            },
+            {
+              "name": "link",
+              "value": "={{ $('Paper').item.json.link }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2528,
+        0
+      ],
+      "id": "ba80fa89-40f3-8ecc-8894-10d448ad22ba",
+      "name": "TTS",
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "={{ $env.GEMINI_TLDR_MODEL }}",
+          "mode": "id"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are an expert AI researcher. Summarize the provided academic paper into a clear, punchy, 2-3 sentence TL;DR for a podcast show notes entry.\n\nFocus on:\n1. What core problem or gap the paper addresses.\n2. The primary method, framework, or technique introduced.\n3. The key finding or takeaway.\n\nRequirements:\n- Keep it under 60 words total.\n- Write in plain text without quotes, markdown headers, or bullet points.\n- Output ONLY the TL;DR text directly. Do not include any introductory phrase like \"Here is the TL;DR:\".\n\nPaper Title: {{ $('Paper').item.json.title }}\nFull Text:\n{{ $('Paper').item.json.fullText }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        944,
+        1248
+      ],
+      "id": "98548d74-dc40-528a-37bc-31784519d9d2",
+      "name": "TLDR",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "geminiApiCred001",
+          "name": "Google Gemini"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2304,
+        0
+      ],
+      "id": "b40da598-757a-41ad-ff39-420c4c6e44f8",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('INPUT').item.json.podcast_type }}",
+                    "rightValue": "Briefing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "a45e81f6-bd41-4f81-af51-65fd57a28d35"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5dce9489-d743-456c-90fd-506c97bd66a9",
+                    "leftValue": "={{ $('INPUT').item.json.podcast_type }}",
+                    "rightValue": "Breakdown",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b3649683-1029-4473-af68-f2f64de4cea9",
+                    "leftValue": "={{ $('INPUT').item.json.podcast_type }}",
+                    "rightValue": "Deep Dive",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a2993ba1-969f-4779-9154-922c59177a21",
+                    "leftValue": "={{ $('INPUT').item.json.podcast_type }}",
+                    "rightValue": "Lecture Series",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        656,
+        -160
+      ],
+      "id": "c7dd3f88-9cf1-af44-c3d3-5f6d257c06c9",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "={{ $env.GEMINI_SCRIPT_MODEL }}",
+          "mode": "id"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are an expert AI podcast host delivering an in-depth solo research briefing. You will be provided with the full text of an academic paper. Write a comprehensive, highly engaging, single-speaker podcast script that is strictly between 680 and 720 words (targeting a 5-minute listening duration).\n\nStructure the monologue naturally:\n1. The Hook & Context (1 min): Why this problem matters and what gap the paper addresses.\n2. Core Methodology (2 mins): Break down the technical approach, architecture, or theoretical framework clearly.\n3. Results & Implications (2 mins): Discuss key findings, limitations, and how this impacts future developments.\n\nDo not include sound effects, background music cues, or speaker labels. Output only the spoken monologue text.\n\nPREPARE FOR AUDIO READABILITY:\nRewrite all mathematical expressions, citations, and academic abbreviations into natural, spoken English prose:\n- Numbers & Sections: \"Theorem 2.3\" -> \"Theorem two point three\", \"Section 4.1\" -> \"Section four point one\"\n- Equations & Citations: \"Eq. (5)\" -> \"Equation five\", \"Ref. [12]\" -> \"reference twelve\"\n- Math Notation: \"x^2\" -> \"x squared\", \"f(x)\" -> \"f of x\", \"R^n\" -> \"R n\", \"A \\in B\" -> \"A in B\"\n- Greek Letters & Symbols: \"rho_0\" -> \"rho zero\", \"d/dt\" -> \"the time derivative of\"\n- Common Shorthand: \"e.g.\" -> \"for example\", \"i.e.\" -> \"that is\", \"w.r.t.\" -> \"with respect to\", \"WLOG\" -> \"without loss of generality\"\n- Remove all raw LaTeX delimiters ($...$, \\[...\\], \\begin{equation}...) entirely.\n\nPaper Title: {{ $('Paper').item.json.title }}\nFull Text:\n{{ $('Paper').item.json.fullText }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        944,
+        -576
+      ],
+      "id": "9f27cdee-0b2c-34cc-7977-65ffaae1b134",
+      "name": "Briefing Script",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "geminiApiCred001",
+          "name": "Google Gemini"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert podcast host. Write an in-depth solo academic lecture ('Breakdown') on the attached paper. \nTarget word count: strictly between 2,100 and 2,300 words (15 minutes of audio).\n\nBreak down the monologue into these 5 clear chapters:\n1. Technical Problem & Motivation (400 words)\n2. Theoretical Framework & Mathematical Underpinnings (600 words)\n3. Architecture & Physical/Algorithmic Implementation (600 words)\n4. Empirical Results, Baselines, and Benchmark Comparison (400 words)\n5. Critical Assessment, Limitations, and Future Outlook (200 words)\n\nWrite in full spoken prose without markdown formatting or headers.\n\nPREPARE FOR AUDIO READABILITY:\nRewrite all mathematical expressions, citations, and academic abbreviations into natural, spoken English prose:\n- Numbers & Sections: \"Theorem 2.3\" -> \"Theorem two point three\", \"Section 4.1\" -> \"Section four point one\"\n- Equations & Citations: \"Eq. (5)\" -> \"Equation five\", \"Ref. [12]\" -> \"reference twelve\"\n- Math Notation: \"x^2\" -> \"x squared\", \"f(x)\" -> \"f of x\", \"R^n\" -> \"R n\", \"A \\in B\" -> \"A in B\"\n- Greek Letters & Symbols: \"rho_0\" -> \"rho zero\", \"d/dt\" -> \"the time derivative of\"\n- Common Shorthand: \"e.g.\" -> \"for example\", \"i.e.\" -> \"that is\", \"w.r.t.\" -> \"with respect to\", \"WLOG\" -> \"without loss of generality\"\n- Remove all raw LaTeX delimiters ($...$, \\[...\\], \\begin{equation}...) entirely.\n\nPaper Title: {{ $('Paper').item.json.title }}\nFull Text:\n{{ $('Paper').item.json.fullText }}\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        896,
+        -256
+      ],
+      "id": "dacd630d-8f0b-505d-791e-c87e93eb66a3",
+      "name": "Breakdown Script"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert researcher and the solo host of an elite technical audio-essay series.\nYour goal is to design a detailed 5-chapter outline for a 45-minute, single-speaker deep dive on the provided paper.\n\nPaper Title: {{ $('Paper').item.json.title }}\nFull Text:\n{{ $('Paper').item.json.fullText }}\n\nTarget Total Duration: 45 minutes (~6,000 total words).\n\nThe structure must sustain listener engagement for a long solo runtime. Each chapter must build logically on the last. \nOutput a valid JSON array of 5 distinct chapter objects. Do NOT wrap in markdown fences.\nStrict JSON format:\n[\n  {\n    \"chapter_num\": 1,\n    \"title\": \"The Core Paradigm Shift & Motivation\",\n    \"target_words\": 1200,\n    \"key_topics\": [\"Historical context\", \"The primary failure of existing methods\", \"The paper's core thesis\"],\n    \"narrative_goal\": \"Hook the listener and establish why this problem matters.\"\n  },\n  {\n    \"chapter_num\": 2,\n    \"title\": \"Theoretical Framework & Mathematical Formulation\",\n    \"target_words\": 1400,\n    \"key_topics\": [\"Formal definitions\", \"Key equations explained verbally\", \"Theoretical guarantees\"],\n    \"narrative_goal\": \"Unpack the math clearly using analogies.\"\n  },\n  {\n    \"chapter_num\": 3,\n    \"title\": \"System Architecture & Implementation\",\n    \"target_words\": 1300,\n    \"key_topics\": [\"System design\", \"Novel components\", \"Experimental setup\"],\n    \"narrative_goal\": \"Explain how it is actually built and run.\"\n  },\n  {\n    \"chapter_num\": 4,\n    \"title\": \"Empirical Results, Baselines & Benchmarks\",\n    \"target_words\": 1200,\n    \"key_topics\": [\"Ablation studies\", \"Benchmark performance\", \"Surprising failures\"],\n    \"narrative_goal\": \"Analyze the data objectively.\"\n  },\n  {\n    \"chapter_num\": 5,\n    \"title\": \"Critique, Future Directions & Broader Impact\",\n    \"target_words\": 900,\n    \"key_topics\": [\"Unaddressed limitations\", \"Open research questions\", \"Practical implications\"],\n    \"narrative_goal\": \"Deliver a strong, critical conclusion.\"\n  }\n]",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        912,
+        128
+      ],
+      "id": "9617df6b-b0c7-5711-cc07-919971442a15",
+      "name": "Deep Dive structure"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert AI podcast host delivering an in-depth solo research briefing. You will be provided with the full text of an academic paper. Write a comprehensive, highly engaging, single-speaker podcast script that is strictly between 680 and 720 words (targeting a 5-minute listening duration).\n\nStructure the monologue naturally:\n1. The Hook & Context (1 min): Why this problem matters and what gap the paper addresses.\n2. Core Methodology (2 mins): Break down the technical approach, architecture, or theoretical framework clearly.\n3. Results & Implications (2 mins): Discuss key findings, limitations, and how this impacts future developments.\n\nDo not include sound effects, background music cues, or speaker labels. Output only the spoken monologue text.\n\nPREPARE FOR AUDIO READABILITY:\nRewrite all mathematical expressions, citations, and academic abbreviations into natural, spoken English prose:\n- Numbers & Sections: \"Theorem 2.3\" -> \"Theorem two point three\", \"Section 4.1\" -> \"Section four point one\"\n- Equations & Citations: \"Eq. (5)\" -> \"Equation five\", \"Ref. [12]\" -> \"reference twelve\"\n- Math Notation: \"x^2\" -> \"x squared\", \"f(x)\" -> \"f of x\", \"R^n\" -> \"R n\", \"A \\in B\" -> \"A in B\"\n- Greek Letters & Symbols: \"rho_0\" -> \"rho zero\", \"d/dt\" -> \"the time derivative of\"\n- Common Shorthand: \"e.g.\" -> \"for example\", \"i.e.\" -> \"that is\", \"w.r.t.\" -> \"with respect to\", \"WLOG\" -> \"without loss of generality\"\n- Remove all raw LaTeX delimiters ($...$, \\[...\\], \\begin{equation}...) entirely.\n\nPaper Title: {{ $('Paper').item.json.title }}\nFull Text:\n{{ $('Paper').item.json.fullText }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1264,
+        -480
+      ],
+      "id": "164e2258-cc41-9678-1abc-bdb0d7105a01",
+      "name": "Briefing Script Backup"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert AI researcher. Summarize the provided academic paper into a clear, punchy, 2-3 sentence TL;DR for a podcast show notes entry.\n\nFocus on:\n1. What core problem or gap the paper addresses.\n2. The primary method, framework, or technique introduced.\n3. The key finding or takeaway.\n\nRequirements:\n- Keep it under 60 words total.\n- Write in plain text without quotes, markdown headers, or bullet points.\n- Output ONLY the TL;DR text directly. Do not include any introductory phrase like \"Here is the TL;DR:\".\n\nPaper Title: {{ $('Paper').item.json.title }}\nFull Text:\n{{ $('Paper').item.json.fullText }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1296,
+        1376
+      ],
+      "id": "d53181c1-9d05-7d3b-8ae5-a3bbbab34d70",
+      "name": "TLDR Backup"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are writing Chapter {{ $json.chapter_num }} of a 45-minute technical audio-essay. \nYou are the solo host—an expert researcher speaking directly to an audience of your peers.\n\n### CONTEXT & GOALS\n- Chapter Title: {{ $json.title }}\n- Target Word Count: STRICTLY between {{ $json.target_words }} and {{ Math.round($json.target_words * 1.1) }} words.\n- Key Topics to Cover: {{ $json.key_topics.join(', ') }}\n- Narrative Goal: {{ $json.narrative_goal }}\n\n### WRITING RULES FOR A SOLO MONOLOGUE\n1. Write in natural, engaging spoken English for TTS synthesis.\n2. Because there is no co-host, you MUST use rhetorical questions, analogies, and clear verbal signposts (e.g., \"Now, let's examine...\", \"Here is the critical trade-off...\") to maintain pacing and listener attention.\n3. Explain dense equations or algorithms conceptually. Do not read raw mathematical notation aloud.\n4. Avoid generic filler. Dive deep into the technical substance. \n5. Output ONLY raw spoken text. Do NOT include markdown headers, section numbers, or meta-commentary.\n\nPREPARE FOR AUDIO READABILITY:\nRewrite all mathematical expressions, citations, and academic abbreviations into natural, spoken English prose:\n- Numbers & Sections: \"Theorem 2.3\" -> \"Theorem two point three\", \"Section 4.1\" -> \"Section four point one\"\n- Equations & Citations: \"Eq. (5)\" -> \"Equation five\", \"Ref. [12]\" -> \"reference twelve\"\n- Math Notation: \"x^2\" -> \"x squared\", \"f(x)\" -> \"f of x\", \"R^n\" -> \"R n\", \"A \\in B\" -> \"A in B\"\n- Greek Letters & Symbols: \"rho_0\" -> \"rho zero\", \"d/dt\" -> \"the time derivative of\"\n- Common Shorthand: \"e.g.\" -> \"for example\", \"i.e.\" -> \"that is\", \"w.r.t.\" -> \"with respect to\", \"WLOG\" -> \"without loss of generality\"\n- Remove all raw LaTeX delimiters ($...$, \\[...\\], \\begin{equation}...) entirely.\n\nPaper Full Text:\n{{ $('Paper').first().json.fullText }}\n\nBegin Chapter {{ $json.chapter_num }}:",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1600,
+        208
+      ],
+      "id": "a4b4dbf2-2b96-5efd-f6de-8be87e275d7c",
+      "name": "Deep Dive Chapter"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawText = $input.first().json.output || \"\";\n\n// Strip potential markdown fences\nconst cleaned = rawText.replace(/```json\\n?|\\n?```/g, \"\").trim();\nlet chapters = [];\n\ntry {\n  chapters = JSON.parse(cleaned);\n} catch (e) {\n  throw new Error(\"Failed to parse LLM outline into JSON array: \" + e.message);\n}\n\n// Return each chapter as an individual n8n item\nreturn chapters.map(ch => ({ json: ch }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        128
+      ],
+      "id": "7a63433f-17c6-f0ea-7995-1d3c7c552677",
+      "name": "Parse & Split Outline"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1408,
+        128
+      ],
+      "id": "cba568b1-08df-1627-24d9-00fa03ae3013",
+      "name": "Loop Over Chapters"
+    },
+    {
+      "parameters": {
+        "jsCode": "const allChapters = $(\"Loop Over Chapters\").all();\n\n// Join using the separator expected by the server\nconst fullScript = allChapters\n  .map(item => item.json.output || item.json.content || \"\")\n  .join(\"\\n\\n---\\n\\n\");\n\nreturn [{\n  json: {\n    text: fullScript\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1616,
+        32
+      ],
+      "id": "e55b273c-1e01-30f6-9271-8ae77abbf466",
+      "name": "Combine Script",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.LLM_MODEL_BRIEFING }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        -288
+      ],
+      "id": "6f2e9bb4-0685-c2b6-a5b6-1dcb3dc7de73",
+      "name": "Briefing Backup Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "llmGatewayCred01",
+          "name": "LLM gateway (Ollama API)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.LLM_MODEL_BREAKDOWN }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        960,
+        -48
+      ],
+      "id": "ee199adc-84e1-13ed-2624-bf4402d6d517",
+      "name": "Breakdown Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "llmGatewayCred01",
+          "name": "LLM gateway (Ollama API)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.LLM_MODEL_OUTLINE }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        976,
+        368
+      ],
+      "id": "391ab76d-2332-2590-e524-6dd90aad4ae5",
+      "name": "Deep Dive Outline Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "llmGatewayCred01",
+          "name": "LLM gateway (Ollama API)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.LLM_MODEL_TLDR }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        1584
+      ],
+      "id": "cd716346-1092-2941-2af8-abdba1c8605e",
+      "name": "TLDR Backup Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "llmGatewayCred01",
+          "name": "LLM gateway (Ollama API)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.PDF_CONVERTER_URL }}/convert-arxiv",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "url",
+              "value": "=https://arxiv.org/pdf/{{ $json.arxivID }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        176,
+        400
+      ],
+      "id": "4053b6e3-9c92-22de-304f-6d354c78f1a7",
+      "name": "PDF Conversion"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Process items from whichever branch executed\nreturn $input.all().map(item => {\n  const data = item.json;\n\n  // Gracefully fallback across common field names\n  const title = data.title;\n  const fullText = data.fullText;\n\n  // Pull values from the INPUT node\n  const inputJson = $('INPUT').first().json;\n  const rawArxivID = inputJson.arxivID;\n  const rawDOI = inputJson.DOI;\n\n  let arxivID = null;\n  let link = null;\n\n  // If arxivID is present and non-empty\n  if (rawArxivID && String(rawArxivID).trim() !== '') {\n    const cleanArxiv = String(rawArxivID).trim();\n    arxivID = `(arXiv: ${cleanArxiv})`;\n    link = `https://arxiv.org/pdf/${cleanArxiv}`;\n  } \n  // Fallback to DOI if arxivID is missing\n  else if (rawDOI && String(rawDOI).trim() !== '') {\n    arxivID = null;\n    link = String(rawDOI).trim();\n  }\n\n  return {\n    json: {\n      title: title,\n      fullText: fullText,\n      arxivID: arxivID,\n      link: link\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        384
+      ],
+      "id": "0a44fe9b-8278-7e8e-185a-13368bed4e67",
+      "name": "Paper"
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "arxivID"
+            },
+            {
+              "name": "podcast_type"
+            },
+            {
+              "name": "data",
+              "type": "object"
+            },
+            {
+              "name": "DOI"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -592,
+        352
+      ],
+      "id": "998072f4-f635-df93-0540-7d6807dafe4c",
+      "name": "INPUT"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.first().json.content.parts[0].text\n\nreturn [{\n  json: {\n    text: text\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        -672
+      ],
+      "id": "7e4467af-026b-f271-af68-c788b03d9aa0",
+      "name": "Clean-up Briefing Gemini"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.first().json.output\n\nreturn [{\n  json: {\n    text: text\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1632,
+        -384
+      ],
+      "id": "df056b86-1b5b-11f3-d0ad-b5d7d961a9f8",
+      "name": "Clean-up Briefing"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.first().json.output\n\nreturn [{\n  json: {\n    text: text\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        -160
+      ],
+      "id": "5c7564d9-d5ce-0c7a-d70f-46fdc9e58073",
+      "name": "Clean-up Breakdown"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.first().json.content.parts[0].text\n\nreturn [{\n  json: {\n    tldr: text\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1392,
+        1216
+      ],
+      "id": "69a5ad8c-5f58-be25-c94f-53b409474428",
+      "name": "Clean-up TLDR Gemini"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $input.first().json.output\n\nreturn [{\n  json: {\n    tldr: text\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1648,
+        1376
+      ],
+      "id": "53a67a22-0c6a-56e9-e8f0-17d1c1b2ac22",
+      "name": "Clean-up TLDR"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bdd849f0-ea7d-41d4-b68b-97c55a3f2cc8",
+              "leftValue": "={{ $json.arxivID }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -368,
+        352
+      ],
+      "id": "92e7a499-8b8f-37d6-9685-acd6c2766dd8",
+      "name": "Has arXiv ID?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.PDF_CONVERTER_URL }}/convert-file",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "={{ $json.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        176,
+        656
+      ],
+      "id": "29b3af4b-2e5c-bdfb-2120-f01c384bc510",
+      "name": "File Conversion"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Helper function to fix/strip unpaired UTF-16 surrogate characters\nfunction sanitizeText(str) {\n  if (typeof str !== 'string') return '';\n  if (typeof str.toWellFormed === 'function') {\n    return str.toWellFormed();\n  }\n  return str.replace(/[\\uD800-\\uDBFF](?![\\uDC00-\\uDFFF])|(?<![\\uD800-\\uDBFF])[\\uDC00-\\uDFFF]/g, '');\n}\n\nconst rawFullText = $('Paper').first().json.fullText || \"\";\nconst fullText = sanitizeText(rawFullText);\n\nif (!fullText) {\n  throw new Error(\"No full text found for document.\");\n}\n\n// Fixed regex without empty matching alternatives\nconst chapterRegex = /(?=(?:^|\\n)(?:Chapter|CHAPTER|Section|SECTION)\\s+\\d+|\\n#{1,2}\\s+\\d+)/gi;\nlet rawChapters = fullText.split(chapterRegex).filter(c => c.trim().length > 300);\n\nif (rawChapters.length <= 1) {\n  const chunkSize = 8000;\n  rawChapters = [];\n  for (let i = 0; i < fullText.length; i += chunkSize) {\n    rawChapters.push(fullText.slice(i, i + chunkSize));\n  }\n}\n\nconst totalDocWords = fullText.split(/\\s+/).length;\n\nconst chapterMap = rawChapters.map((text, idx) => {\n  const lines = text.trim().split('\\n');\n  const rawFirstLine = lines[0].replace(/^#+\\s*/, '').trim();\n  const title = sanitizeText(rawFirstLine.length < 90 ? rawFirstLine : `Section ${idx + 1}`);\n  \n  const wordCount = text.trim().split(/\\s+/).length;\n  const weightPercent = ((wordCount / totalDocWords) * 100).toFixed(1);\n  \n  // Sanitize sliced strings in case a slice boundary split a surrogate pair\n  const excerpt = sanitizeText(text.trim().slice(0, 500).replace(/\\s+/g, ' ') + \"...\");\n  const cleanedText = sanitizeText(text.trim());\n\n  return {\n    chapter_num: idx + 1,\n    title: title,\n    word_count: wordCount,\n    weight_percent: `${weightPercent}%`,\n    excerpt: excerpt,\n    text: cleanedText\n  };\n});\n\nconst summaryList = sanitizeText(chapterMap.map(c => \n  `Section ${c.chapter_num}: \"${c.title}\" | Word Count: ${c.word_count} (~${c.weight_percent} of text)\\n  Excerpt: \"${c.excerpt}\"`\n).join('\\n\\n'));\n\nreturn [{\n  json: {\n    total_chapters: chapterMap.length,\n    total_doc_words: totalDocWords,\n    chapter_summary_list: summaryList,\n    chapterMap: chapterMap\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        864,
+        560
+      ],
+      "id": "6d77b72e-29a6-5aeb-a139-204182fb758c",
+      "name": "Build Chapter Map"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert curriculum designer and podcast producer.\nBelow is the structural breakdown of a technical document, including section titles, word counts, depth weights, and content previews.\n\nTitle: {{ $('Paper').first().json.title }}\nTotal Document Words: {{ $json.total_doc_words }}\nTotal Sections: {{ $json.total_chapters }}\n\nSection Metadata & Focus Previews:\n{{ $json.chapter_summary_list }}\n\nYour Task:\n1. Analyze where the document spends the most analytical depth based on word counts and excerpts.\n2. Group sections into 2 to 5 standalone audio episodes. Ensure heavier sections (large word count/depth) get dedicated time or spans, while brief background sections are combined.\n3. Define clear learning goals for each episode based on its assigned focus.\n\nOutput ONLY a valid JSON array of episode objects without markdown code fences.\nStrict JSON Format:\n[\n  {\n    \"episode_num\": 1,\n    \"episode_title\": \"Foundations & Core Mechanics\",\n    \"start_chapter\": 1,\n    \"end_chapter\": 3,\n    \"learning_goals\": \"Master the initial core framework established in the opening chapters.\"\n  }\n]",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1008,
+        560
+      ],
+      "id": "e35304bd-52b5-bb7c-7b35-0d7ee0e31aab",
+      "name": "Syllabus Planner"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawLLM = $input.first().json.output || $input.first().json.content || $input.first().json.text || \"\";\n\nconst jsonMatch = rawLLM.match(/\\[\\s*\\{[\\s\\S]*\\}\\s*\\]/);\nconst cleaned = jsonMatch ? jsonMatch[0] : rawLLM.replace(/```json\\n?|\\n?```/g, \"\").trim();\n\nlet parsedData = [];\ntry {\n  parsedData = JSON.parse(cleaned);\n} catch (e) {\n  throw new Error(\"Failed to parse LLM JSON: \" + e.message);\n}\n\nconst chapterMap = $('Build Chapter Map').first().json.chapterMap || [];\n\nreturn parsedData.map((ep) => {\n  const matchingChapters = chapterMap.filter(\n    c => c.chapter_num >= ep.start_chapter && c.chapter_num <= ep.end_chapter\n  );\n\n  const textSlice = matchingChapters.length > 0 \n    ? matchingChapters.map(c => c.text).join('\\n\\n---\\n\\n')\n    : $('Paper').first().json.fullText;\n\n  return {\n    json: {\n      episode_num: ep.episode_num,\n      episode_title: ep.episode_title,\n      learning_goals: ep.learning_goals,\n      lecture_text_slice: textSlice\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        560
+      ],
+      "id": "0ac6db4f-96cf-82d9-486f-a998f4576a04",
+      "name": "Assemble Episode Slices"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert technical audio-essay producer.\nYour goal is to design a detailed 5-chapter outline for Episode {{ $json.episode_num }}: \"{{ $json.episode_title }}\".\n\nEpisode Goal: {{ $json.learning_goals }}\n\nSource Text for this Episode:\n{{ $json.lecture_text_slice }}\n\nDesign a 5-chapter Deep Dive structure that thoroughly unpacks this specific source text into a compelling solo lecture monologue.\n\nOutput ONLY a valid JSON array of 5 distinct chapter objects. Do NOT wrap in markdown fences.\nStrict JSON format:\n[\n  {\n    \"chapter_num\": 1,\n    \"title\": \"Introduction & Theoretical Context\",\n    \"target_words\": 1000,\n    \"key_topics\": [\"Topic A\", \"Topic B\"],\n    \"narrative_goal\": \"Hook the listener and establish the core problem.\"\n  },\n  {\n    \"chapter_num\": 2,\n    \"title\": \"Detailed Mechanics & Derivations\",\n    \"target_words\": 1200,\n    \"key_topics\": [\"Topic C\", \"Topic D\"],\n    \"narrative_goal\": \"Unpack the core mathematical or technical concepts conceptually.\"\n  },\n  {\n    \"chapter_num\": 3,\n    \"title\": \"Architecture & Implementation\",\n    \"target_words\": 1100,\n    \"key_topics\": [\"Topic E\"],\n    \"narrative_goal\": \"Explain how this system is constructed or executed.\"\n  },\n  {\n    \"chapter_num\": 4,\n    \"title\": \"Empirical Results & Benchmarks\",\n    \"target_words\": 1000,\n    \"key_topics\": [\"Topic F\"],\n    \"narrative_goal\": \"Critically analyze performance and key experimental findings.\"\n  },\n  {\n    \"chapter_num\": 5,\n    \"title\": \"Synthesis & Key Takeaways\",\n    \"target_words\": 800,\n    \"key_topics\": [\"Topic G\"],\n    \"narrative_goal\": \"Summarize key lessons before concluding the episode.\"\n  }\n]",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1504,
+        560
+      ],
+      "id": "47699287-5f76-35fd-1a72-fd929fe82bad",
+      "name": "Episode Outline Planner"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Flatten all chapters from all episodes into a flat, sequential task list\nconst allEpisodes = $input.all();\nconst flatQueue = [];\n\nallEpisodes.forEach(epItem => {\n  const rawLLM = epItem.json.output || epItem.json.content || epItem.json.text || \"\";\n  const jsonMatch = rawLLM.match(/\\[\\s*\\{[\\s\\S]*\\}\\s*\\]/);\n  const cleaned = jsonMatch ? jsonMatch[0] : rawLLM.replace(/```json\\n?|\\n?```/g, \"\").trim();\n\n  let chapters = [];\n  try {\n    chapters = JSON.parse(cleaned);\n  } catch (e) {\n    chapters = [];\n  }\n\n  const parent = epItem.json;\n  chapters.forEach(ch => {\n    flatQueue.push({\n      json: {\n        episode_num: parent.episode_num,\n        episode_title: parent.episode_title,\n        learning_goals: parent.learning_goals,\n        chapter_num: ch.chapter_num,\n        title: ch.title,\n        target_words: ch.target_words,\n        key_topics: ch.key_topics,\n        narrative_goal: ch.narrative_goal,\n        lecture_text_slice: parent.lecture_text_slice\n      }\n    });\n  });\n});\n\nreturn flatQueue;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1904,
+        560
+      ],
+      "id": "43fb1bc7-2a48-11a8-28d7-c6214eedb2ec",
+      "name": "Prepare Episode Chapters"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2176,
+        640
+      ],
+      "id": "dc5873af-fc79-e0c2-475f-f8f27ab1d0cb",
+      "name": "Loop Over Episode Chapters"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6fc4b05b-ea8b-4763-bd1f-681569beddac",
+              "leftValue": "={{ $('INPUT').item.json.podcast_type }}",
+              "rightValue": "Lecture Series",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        656,
+        1088
+      ],
+      "id": "d79698cf-49fc-b67a-4477-63204f8002af",
+      "name": "TLDR for Lectures"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are writing Chapter {{ $json.chapter_num }} of Episode {{ $json.episode_num }} (\"{{ $json.episode_title }}\") in an elite technical lecture series.\nYou are the solo host speaking directly to an audience of researcher peers.\n\n### CONTEXT & GOALS\n- Episode Title: {{ $json.episode_title }}\n- Chapter Title: {{ $json.title }}\n- Target Word Count: STRICTLY between {{ $json.target_words }} and {{ Math.round($json.target_words * 1.1) }} words.\n- Key Topics to Cover: {{ $json.key_topics.join(', ') }}\n- Narrative Goal: {{ $json.narrative_goal }}\n\n### WRITING RULES FOR A SOLO MONOLOGUE\n1. Write in natural, engaging spoken English optimized for TTS synthesis.\n2. Use rhetorical questions, clear verbal transition markers, and analogies to explain complex material without co-hosts.\n3. Explain technical formulas conceptually; do not read raw math notation aloud.\n4. Output ONLY spoken prose text without markdown headers or meta-commentary.\n\nPREPARE FOR AUDIO READABILITY:\nRewrite all mathematical expressions, citations, and academic abbreviations into natural, spoken English prose:\n- Numbers & Sections: \"Theorem 2.3\" -> \"Theorem two point three\", \"Section 4.1\" -> \"Section four point one\"\n- Equations & Citations: \"Eq. (5)\" -> \"Equation five\", \"Ref. [12]\" -> \"reference twelve\"\n- Math Notation: \"x^2\" -> \"x squared\", \"f(x)\" -> \"f of x\", \"R^n\" -> \"R n\", \"A \\in B\" -> \"A in B\"\n- Greek Letters & Symbols: \"rho_0\" -> \"rho zero\", \"d/dt\" -> \"the time derivative of\"\n- Common Shorthand: \"e.g.\" -> \"for example\", \"i.e.\" -> \"that is\", \"w.r.t.\" -> \"with respect to\", \"WLOG\" -> \"without loss of generality\"\n- Remove all raw LaTeX delimiters ($...$, \\[...\\], \\begin{equation}...) entirely.\n\nSource Text Slice:\n{{ $json.lecture_text_slice }}\n\nBegin Chapter {{ $json.chapter_num }}:",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2400,
+        736
+      ],
+      "id": "4fd240aa-0c7c-2d9e-8498-62a3619417be",
+      "name": "Lecture Series Chapter Script"
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.LLM_MODEL_LECTURE_PLAN }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1296,
+        864
+      ],
+      "id": "ac9d2392-0b7f-06ea-4843-d2cd8bd3cfa3",
+      "name": "Lecture Planner Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "llmGatewayCred01",
+          "name": "LLM gateway (Ollama API)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const flaskResponse = $input.first().json;\nconst slug = flaskResponse.filename_slug || \"\";\n\n// Safely pull from both items emitted by the Merge node\nconst mergeItems = $('Merge').all();\nconst textItem = mergeItems.find(i => i.json.text) || mergeItems[0] || {};\nconst tldrItem = mergeItems.find(i => i.json.tldr) || mergeItems[1] || {};\n\nconst fullScript = (textItem.json?.text || \"\").trim();\nconst tldrText = (tldrItem.json?.tldr || \"\").trim();\n\nlet title = \"Untitled Episode\";\nlet link = \"\";\nlet arxivId = \"\";\n\ntry {\n  const paper = $('Paper').first().json;\n  const inputData = $('INPUT').first().json;\n  \n  arxivId = (paper.arxiv_id || paper.arxivID || \"\").replace(/[^0-9.]/g, \"\");\n  const podcastType = inputData.podcast_type || 'Podcast';\n  const idLabel = arxivId ? ` (arXiv: ${arxivId})` : (paper.doi ? ` (${paper.doi})` : '');\n  \n  title = `${podcastType} - ${paper.title || 'Paper'}${idLabel}`.trim();\n  link = paper.link || (arxivId ? `https://arxiv.org/abs/${arxivId}` : \"\");\n} catch (e) {\n  title = textItem.json?.title || title;\n  link = textItem.json?.link || link;\n}\n\nconst baseUrl = String($env.PODCAST_PUBLIC_URL || '').replace(/\\/+$/, '');\n\nreturn [{\n  json: {\n    text: fullScript,\n    title: title,\n    arxiv_id: arxivId,\n    link: link,\n    audio_url: slug ? `${baseUrl}/${slug}.mp3` : \"\",\n    transcript_url: slug ? `${baseUrl}/${slug}.html` : \"\",\n    tldr: tldrText,\n    created_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2832,
+        0
+      ],
+      "id": "918bf061-e3fe-854b-0aba-067b7df81c32",
+      "name": "arXiv storage"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "podcasts",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1,
+      "position": [
+        3072,
+        0
+      ],
+      "id": "f5caadd2-dbfd-b3e9-2421-6087385123fb",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "qdrantApiCred001",
+          "name": "Qdrant"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.EMBEDDING_MODEL }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        3008,
+        208
+      ],
+      "id": "de8c273b-0228-8d69-0208-4a032de246e8",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "ollamaEmbedCred1",
+          "name": "Ollama (embeddings)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chunkOverlap": 150,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        3168,
+        384
+      ],
+      "id": "b253f289-4f51-90d3-43f6-8109e84b1a8b",
+      "name": "Recursive Character Text Splitter"
+    },
+    {
+      "parameters": {
+        "jsCode": "const allChapters = $('Lecture Series Chapter Script').all();\nconst episodesMap = {};\n\nallChapters.forEach(item => {\n  const d = item.json;\n  const epNum = d.episode_num;\n\n  if (!episodesMap[epNum]) {\n    episodesMap[epNum] = {\n      episode_num: epNum,\n      episode_title: d.episode_title,\n      learning_goals: d.learning_goals,\n      chapters: []\n    };\n  }\n\n  const chapterText = (d.output || d.text || d.content || \"\").trim();\n  episodesMap[epNum].chapters.push(chapterText);\n});\n\nconst paper = $('Paper').first().json;\nconst paperTitle = paper.title || \"Paper\";\nconst rawArxiv = (paper.arxiv_id || paper.arxivID || \"\").replace(/[^0-9.]/g, \"\");\nconst idLabel = rawArxiv ? ` (arXiv: ${rawArxiv})` : '';\n\nreturn Object.values(episodesMap).map(ep => ({\n  json: {\n    episode_num: ep.episode_num,\n    episode_title: ep.episode_title,\n    title: `Lecture Series - Ep ${ep.episode_num}: ${ep.episode_title} - ${paperTitle}${idLabel}`,\n    text: ep.chapters.join(\"\\n\\n---\\n\\n\"),\n    tldr: `Episode ${ep.episode_num}: ${ep.episode_title}. Focus: ${ep.learning_goals}`,\n    link: paper.link || (rawArxiv ? `https://arxiv.org/abs/${rawArxiv}` : \"\")\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2416,
+        448
+      ],
+      "id": "1aa10796-f823-1cdc-0b40-79e5611a8a7f",
+      "name": "Reassemble Episodes"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.TTS_URL }}/podcast",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "title",
+              "value": "={{ $json.title }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.text }}"
+            },
+            {
+              "name": "tldr",
+              "value": "={{ $json.tldr }}"
+            },
+            {
+              "name": "link",
+              "value": "={{ $('Paper').first().json.link }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2752,
+        544
+      ],
+      "id": "facf5277-375f-5e12-6ebb-38336f8d4cf5",
+      "name": "TTS Lecture Series",
+      "executeOnce": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2592,
+        448
+      ],
+      "id": "c89f6e6e-6734-0b49-1307-8fca0405af7c",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.EMBEDDING_MODEL }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        3168,
+        752
+      ],
+      "id": "e4b771dc-2698-3986-656d-ba9e08b06969",
+      "name": "Embeddings Ollama1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "ollamaEmbedCred1",
+          "name": "Ollama (embeddings)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chunkOverlap": 150,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        3328,
+        928
+      ],
+      "id": "41cde624-0d33-2d42-f493-644526f5c882",
+      "name": "Recursive Character Text Splitter1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const flaskResponse = $input.first().json || {};\nconst slug = flaskResponse.filename_slug || \"\";\n\n// Pull current episode metadata from the active loop item\nconst currentEpisode = $('Loop Over Items').item.json || {};\n\nconst fullScript = (currentEpisode.text || \"\").trim();\nconst tldrText = (currentEpisode.tldr || \"\").trim();\nconst epTitle = currentEpisode.title || \"Lecture Episode\";\nconst epLink = currentEpisode.link || \"\";\n\nlet arxivId = \"\";\ntry {\n  const paper = $('Paper').first().json;\n  arxivId = (paper.arxiv_id || paper.arxivID || \"\").replace(/[^0-9.]/g, \"\");\n} catch (e) {}\n\nconst baseUrl = String($env.PODCAST_PUBLIC_URL || '').replace(/\\/+$/, '');\n\nreturn [{\n  json: {\n    text: fullScript,\n    title: epTitle,\n    arxiv_id: arxivId,\n    link: epLink,\n    audio_url: slug ? `${baseUrl}/${slug}.mp3` : \"\",\n    transcript_url: slug ? `${baseUrl}/${slug}.html` : \"\",\n    tldr: tldrText,\n    created_at: new Date().toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2992,
+        544
+      ],
+      "id": "e6f3aedd-614b-0e18-1a62-bb86f6dfabdd",
+      "name": "arXiv storage - Lecture Series"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "podcasts",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1,
+      "position": [
+        3232,
+        544
+      ],
+      "id": "e02d0ac9-9b87-55c8-9f8a-641b693eb475",
+      "name": "Qdrant Vector Store - Lecture Series",
+      "credentials": {
+        "qdrantApi": {
+          "id": "qdrantApiCred001",
+          "name": "Qdrant"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "title",
+                "value": "={{ $json.title }}"
+              },
+              {
+                "name": "arxiv_id",
+                "value": "={{ $json.arxiv_id }}"
+              },
+              {
+                "name": "link",
+                "value": "={{ $json.link }}"
+              },
+              {
+                "name": "audio_url",
+                "value": "={{ $json.audio_url }}"
+              },
+              {
+                "name": "transcript_url",
+                "value": "={{ $json.transcript_url }}"
+              },
+              {
+                "name": "tldr",
+                "value": "={{ $json.tldr }}"
+              },
+              {
+                "name": "created_at",
+                "value": "={{ $json.created_at }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        3152,
+        208
+      ],
+      "id": "75cea368-fbf9-c10c-8fb7-135d97a8ccd3",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "title",
+                "value": "={{ $json.title }}"
+              },
+              {
+                "name": "arxiv_id",
+                "value": "={{ $json.arxiv_id }}"
+              },
+              {
+                "name": "link",
+                "value": "={{ $json.link }}"
+              },
+              {
+                "name": "audio_url",
+                "value": "={{ $json.audio_url }}"
+              },
+              {
+                "name": "transcript_url",
+                "value": "={{ $json.transcript_url }}"
+              },
+              {
+                "name": "tldr",
+                "value": "={{ $json.tldr }}"
+              },
+              {
+                "name": "created_at",
+                "value": "={{ $json.created_at }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        3328,
+        752
+      ],
+      "id": "d102f392-425b-a612-3296-d9b68cd5a6b5",
+      "name": "Default Data Loader1"
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.LLM_MODEL_CHAPTER }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        368
+      ],
+      "id": "709700cd-5cb4-5f77-dc8a-2e95753436e5",
+      "name": "Deep Dive Chapter Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "llmGatewayCred01",
+          "name": "LLM gateway (Ollama API)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.LLM_MODEL_LECTURE_CHAPTER }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        2320,
+        1040
+      ],
+      "id": "d9a77766-038b-9a99-04b4-73bfb01a7dd1",
+      "name": "Lecture Chapter Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "llmGatewayCred01",
+          "name": "LLM gateway (Ollama API)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Extract Text": {
+      "main": [
+        [
+          {
+            "node": "Paper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TTS": {
+      "main": [
+        [
+          {
+            "node": "arXiv storage",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TLDR": {
+      "main": [
+        [
+          {
+            "node": "Clean-up TLDR Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "TLDR Backup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Briefing Script",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Breakdown Script",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Deep Dive structure",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Chapter Map",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Briefing Script": {
+      "main": [
+        [
+          {
+            "node": "Clean-up Briefing Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Briefing Script Backup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Breakdown Script": {
+      "main": [
+        [
+          {
+            "node": "Clean-up Breakdown",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deep Dive structure": {
+      "main": [
+        [
+          {
+            "node": "Parse & Split Outline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Briefing Script Backup": {
+      "main": [
+        [
+          {
+            "node": "Clean-up Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TLDR Backup": {
+      "main": [
+        [
+          {
+            "node": "Clean-up TLDR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse & Split Outline": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Chapters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deep Dive Chapter": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Chapters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Chapters": {
+      "main": [
+        [
+          {
+            "node": "Combine Script",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Deep Dive Chapter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine Script": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Paper": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "TLDR for Lectures",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "INPUT": {
+      "main": [
+        [
+          {
+            "node": "Has arXiv ID?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean-up Briefing": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean-up Breakdown": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean-up TLDR Gemini": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Clean-up TLDR": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "File Conversion": {
+      "main": [
+        [
+          {
+            "node": "Paper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Chapter Map": {
+      "main": [
+        [
+          {
+            "node": "Syllabus Planner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Syllabus Planner": {
+      "main": [
+        [
+          {
+            "node": "Assemble Episode Slices",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assemble Episode Slices": {
+      "main": [
+        [
+          {
+            "node": "Episode Outline Planner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Episode Outline Planner": {
+      "main": [
+        [
+          {
+            "node": "Prepare Episode Chapters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Episode Chapters": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Episode Chapters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Episode Chapters": {
+      "main": [
+        [
+          {
+            "node": "Reassemble Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lecture Series Chapter Script",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TLDR for Lectures": {
+      "main": [
+        [],
+        [
+          {
+            "node": "TLDR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lecture Series Chapter Script": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Episode Chapters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "arXiv storage": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reassemble Episodes": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "TTS Lecture Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TTS Lecture Series": {
+      "main": [
+        [
+          {
+            "node": "arXiv storage - Lecture Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store - Lecture Series",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter1": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader1",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "arXiv storage - Lecture Series": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store - Lecture Series",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant Vector Store - Lecture Series": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader1": {
+      "ai_document": [
+        [
+          {
+            "node": "Qdrant Vector Store - Lecture Series",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch arXiv HTML": {
+      "main": [
+        [
+          {
+            "node": "Extract Text",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "PDF Conversion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDF Conversion": {
+      "main": [
+        [
+          {
+            "node": "Paper",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has arXiv ID?": {
+      "main": [
+        [
+          {
+            "node": "Fetch arXiv HTML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "File Conversion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean-up Briefing Gemini": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Briefing Backup Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Briefing Script Backup",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Breakdown Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Breakdown Script",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deep Dive Outline Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Deep Dive structure",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TLDR Backup Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "TLDR Backup",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lecture Planner Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Syllabus Planner",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Episode Outline Planner",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deep Dive Chapter Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Deep Dive Chapter",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lecture Chapter Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Lecture Series Chapter Script",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "rhV3vPpq1DSy2Y3E",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

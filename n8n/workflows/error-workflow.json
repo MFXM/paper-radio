@@ -1,0 +1,239 @@
+{
+  "id": "rhV3vPpq1DSy2Y3E",
+  "name": "Error Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        16
+      ],
+      "id": "eb044fd5-d0c1-c19f-18cc-702a00566761",
+      "name": "Error Trigger"
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MATTERMOST_CHANNEL_ID }}",
+        "message": "⚠️ **Workflow Execution Failed**",
+        "attachments": [
+          {
+            "color": "#D32F2F",
+            "title": "=Node Failure: {{ $json.execution.lastNodeExecuted }}",
+            "fields": {
+              "item": [
+                {
+                  "title": "Execution ID",
+                  "value": "={{ $json.execution.id }}",
+                  "short": true
+                },
+                {
+                  "title": "Workflow",
+                  "value": "={{ $json.workflow.name }}",
+                  "short": true
+                },
+                {
+                  "title": "Error Details",
+                  "value": "={{ $json.execution.error.message }}",
+                  "short": true
+                }
+              ]
+            },
+            "actions": {
+              "item": [
+                {
+                  "type": "button",
+                  "data_source": "custom",
+                  "options": {},
+                  "name": "🔄 Retry from Failed Node",
+                  "integration": {
+                    "item": {
+                      "url": "={{ ($env.WEBHOOK_URL || '').replace(/\\/+$/, '') }}/webhook/retry-execution",
+                      "context": {
+                        "property": [
+                          {
+                            "name": "executionId",
+                            "value": "={{ $json.execution.id }}"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        448,
+        16
+      ],
+      "id": "35fe3e72-5458-ab40-c55a-49d1d84d06f7",
+      "name": "Post Error Card",
+      "credentials": {
+        "mattermostApi": {
+          "id": "mattermostBot001",
+          "name": "Mattermost bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "retry-execution",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        240
+      ],
+      "id": "f583bfff-cae9-db74-975a-b66021b03db3",
+      "name": "Retry Button",
+      "webhookId": "f311c594-7790-4988-bf6e-93e93dafa0d2"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"update\": {\n    \"message\": \"🔄 **Retrying Execution:** `{{ $json.body.context.executionId }}` has been re-submitted.\",\n    \"props\": {\n      \"attachments\": []\n    }\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        224,
+        240
+      ],
+      "id": "f149bd2b-c012-7976-0f54-fc3cd5fb2f2f",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://localhost:{{ $env.N8N_PORT || 5678 }}/api/v1/executions/{{ $json.body.context.executionId }}/retry",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"loadWorkflow\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        448,
+        240
+      ],
+      "id": "e838c4d4-6ec4-389c-0e9d-9ed35345cfab",
+      "name": "Retry Execution (n8n API)",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "n8nApiKeyCred001",
+          "name": "n8n API key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b1bc113d-f981-4237-a932-84c0f3a1f3a8",
+              "leftValue": "={{ $json.workflow.name }}",
+              "rightValue": "Error Workflow",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        16
+      ],
+      "id": "aa026cf4-7afa-1a11-9275-5cb738a17d29",
+      "name": "Is Error Workflow?"
+    }
+  ],
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Is Error Workflow?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        [
+          {
+            "node": "Retry Execution (n8n API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retry Button": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Error Workflow?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Post Error Card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "active": false,
+  "pinData": {},
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

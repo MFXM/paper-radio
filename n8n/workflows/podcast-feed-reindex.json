@@ -1,0 +1,266 @@
+{
+  "id": "AhKuqf6pQ546pSAv",
+  "name": "Podcast Feed Re-index",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        496,
+        176
+      ],
+      "id": "b561b8c0-7870-a718-4446-c6d01502c784",
+      "name": "When clicking ‘Test workflow’"
+    },
+    {
+      "parameters": {
+        "url": "={{ $env.PODCAST_INTERNAL_URL }}/feed.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        704,
+        176
+      ],
+      "id": "24ab9853-9ff8-9b34-0b5c-e66b58cce1b1",
+      "name": "Read RSS Feed"
+    },
+    {
+      "parameters": {
+        "url": "={{ ($json.enclosure && $json.enclosure.url ? $json.enclosure.url.replace(/\\.mp3$/, '.html') : $env.PODCAST_PUBLIC_URL + '/' + (typeof $json.guid === 'string' ? $json.guid : ($json.guid && $json.guid._ ? $json.guid._ : $json.guid)) + '.html').replace($env.PODCAST_PUBLIC_URL, $env.PODCAST_INTERNAL_URL) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        896,
+        176
+      ],
+      "id": "3718b6ae-4f95-5084-a6f6-fa92c209dec4",
+      "name": "Fetch HTML Transcript",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst baseUrl = String($env.PODCAST_PUBLIC_URL || '').replace(/\\/+$/, '');\nconst results = [];\nconst seenGuids = new Set();\n\nitems.forEach((item, index) => {\n  const rssItem = $('Read RSS Feed').all()[index]?.json || {};\n  \n  const rawDescription = (\n    rssItem.description ||\n    rssItem.content ||\n    rssItem.contentSnippet ||\n    rssItem.summary ||\n    rssItem['content:encoded'] ||\n    \"\"\n  );\n\n  // 1. Extract TL;DR from HTML or plaintext description\n  let tldr = \"\";\n  const match = rawDescription.match(/TL;?DR:?\\s*<\\/strong>\\s*([\\s\\S]*?)(?:<\\/p>|<p>|<strong>|\\n|$)/i) \n             || rawDescription.match(/TL;?DR:?\\s*([\\s\\S]*?)(?:Paper Link:|https?:\\/\\/|\\n\\n|$)/i);\n  \n  if (match) {\n    tldr = match[1].replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ').trim();\n  }\n\n  // 2. Validate HTML transcript (reject 404 pages)\n  let rawContent = \"\";\n  if (item.json && item.json.data && !item.json.error && typeof item.json.data === 'string') {\n    const is404 = /404\\s*not\\s*found/i.test(item.json.data);\n    if (!is404 && item.json.data.trim().length > 100) {\n      rawContent = item.json.data;\n    }\n  }\n\n  // Fallback to RSS description if no external HTML transcript exists\n  if (!rawContent) {\n    rawContent = rawDescription;\n  }\n\n  const cleanText = rawContent\n    .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n    .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n\n  if (cleanText.length > 20) {\n    let rawGuid = rssItem.guid;\n    if (typeof rawGuid === 'object' && rawGuid !== null) {\n      rawGuid = rawGuid._ || rawGuid.text || \"\";\n    }\n    if (!rawGuid && rssItem.enclosure && rssItem.enclosure.url) {\n      const parts = rssItem.enclosure.url.split('/');\n      rawGuid = parts[parts.length - 1].replace('.mp3', '');\n    }\n\n    if (!rawGuid || seenGuids.has(rawGuid)) return;\n    seenGuids.add(rawGuid);\n\n    const title = rssItem.title || \"Untitled Episode\";\n    const arxivMatch = title.match(/arXiv:\\s*(\\d{4}\\.\\d{4,5})/i) || cleanText.match(/arXiv:\\s*(\\d{4}\\.\\d{4,5})/i);\n    const arxivId = arxivMatch ? arxivMatch[1] : \"\";\n    const paperLink = rssItem.link || (arxivId ? `https://arxiv.org/abs/${arxivId}` : \"\");\n\n    if (!tldr) {\n      tldr = cleanText.slice(0, 180) + '...';\n    }\n\n    results.push({\n      json: {\n        id: rawGuid,\n        text: cleanText,\n        pageContent: cleanText,\n        title: title,\n        arxiv_id: arxivId,\n        link: paperLink,\n        audio_url: `${baseUrl}/${rawGuid}.mp3`,\n        transcript_url: `${baseUrl}/${rawGuid}.html`,\n        tldr: tldr,\n        created_at: rssItem.pubDate || new Date().toISOString()\n      }\n    });\n  }\n});\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        176
+      ],
+      "id": "639217f0-214c-c17e-dff1-b01b821fdfcf",
+      "name": "Format for Vector Store"
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "podcasts",
+          "mode": "list"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1,
+      "position": [
+        1328,
+        176
+      ],
+      "id": "d5b027d1-31cc-34c3-2175-b133c5d540fb",
+      "name": "Qdrant Vector Store",
+      "credentials": {
+        "qdrantApi": {
+          "id": "qdrantApiCred001",
+          "name": "Qdrant"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.EMBEDDING_MODEL }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        384
+      ],
+      "id": "6845ce4f-8c25-992f-c512-f8e3540fabad",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "ollamaEmbedCred1",
+          "name": "Ollama (embeddings)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "title",
+                "value": "={{ $json.title }}"
+              },
+              {
+                "name": "arxiv_id",
+                "value": "={{ $json.arxiv_id }}"
+              },
+              {
+                "name": "link",
+                "value": "={{ $json.link }}"
+              },
+              {
+                "name": "audio_url",
+                "value": "={{ $json.audio_url }}"
+              },
+              {
+                "name": "transcript_url",
+                "value": "={{ $json.transcript_url }}"
+              },
+              {
+                "name": "tldr",
+                "value": "={{ $json.tldr }}"
+              },
+              {
+                "name": "created_at",
+                "value": "={{ $json.created_at }}"
+              }
+            ]
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        1408,
+        384
+      ],
+      "id": "aafa60d8-debc-6b06-1b93-6ca0056635df",
+      "name": "Default Data Loader"
+    },
+    {
+      "parameters": {
+        "chunkOverlap": 150,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        1472,
+        544
+      ],
+      "id": "041352d7-4a16-f4da-44da-7c8024759ec6",
+      "name": "Recursive Character Text Splitter"
+    }
+  ],
+  "connections": {
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Read RSS Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read RSS Feed": {
+      "main": [
+        [
+          {
+            "node": "Fetch HTML Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch HTML Transcript": {
+      "main": [
+        [
+          {
+            "node": "Format for Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format for Vector Store": {
+      "main": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Qdrant Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recursive Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "errorWorkflow": "rhV3vPpq1DSy2Y3E"
+  },
+  "active": false,
+  "pinData": {},
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

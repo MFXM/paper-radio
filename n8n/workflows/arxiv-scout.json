@@ -1,0 +1,1138 @@
+{
+  "id": "SZ7TINtKAighDsQ8",
+  "name": "arXiv Scout",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [
+        480,
+        512
+      ],
+      "id": "f49f3dfc-2ee0-d1bb-09cc-cd1248c883e5",
+      "name": "XML"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "dataPropertyName": "solution.response",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "titles",
+              "cssSelector": ".paper.tex2jax .title a",
+              "returnArray": true
+            },
+            {
+              "key": "scites",
+              "cssSelector": ".scites-count .count",
+              "returnArray": true
+            },
+            {
+              "key": "arxiv_ids",
+              "cssSelector": ".paper.tex2jax .uid",
+              "returnArray": true
+            },
+            {
+              "key": "abstracts",
+              "cssSelector": ".paper .abstract",
+              "returnArray": true
+            },
+            {
+              "key": "authors",
+              "cssSelector": ".paper.tex2jax .authors",
+              "returnArray": true
+            },
+            {
+              "key": "uid",
+              "cssSelector": ".paper.tex2jax .uid",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        256,
+        704
+      ],
+      "id": "2f2d3653-e209-b2f4-f56e-cbae95b950c9",
+      "name": "HTML"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.FLARESOLVERR_URL }}/v1",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ cmd: 'request.get', url: 'https://scirate.com/arxiv/' + $env.SCIRATE_CATEGORY + '?range=7', maxTimeout: 60000 }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        48,
+        704
+      ],
+      "id": "8a1f64ef-2340-7145-f091-9d00af34697b",
+      "name": "SciRate Scout",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ensure we are handling the data correctly from the XML node\nconst entries = $node[\"XML\"].json.feed.entry;\n\n// Handle cases with 0, 1, or many papers\nif (!entries) return []; \nconst entriesArray = Array.isArray(entries) ? entries : [entries];\n\nreturn entriesArray\n  .map(paper => {\n    const id = paper.id?._text || paper.id || \"\";\n    \n    return {\n      title: paper.title?._text || paper.title || 'No Title',\n      abstract: paper.summary?._text || paper.summary || 'No Abstract',\n      url: id,\n      authors: Array.isArray(paper.author) \n        ? paper.author.map(a => a.name?._text || a.name).join(', ') \n        : (paper.author?.name?._text || paper.author?.name || 'Unknown Author'),\n      published: paper.published?._text || paper.published,\n      // Helper to identify the version\n      isFirstVersion: id.includes('v1')\n    };\n  })\n  // FILTER: Only keep the paper if it is a v1 (new submission)\n  .filter(paper => paper.isFirstVersion);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        512
+      ],
+      "id": "97b791b6-7e52-a88f-980d-bd260aea2524",
+      "name": "arXiv Fetch"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Safely grab the arrays\nconst titles = $node[\"HTML\"].json.titles || [];\nconst scites = $node[\"HTML\"].json.scites || [];\nconst uids = $node[\"HTML\"].json.uid || [];\nconst abstracts = $node[\"HTML\"].json.abstracts || [];\nconst authors = $node[\"HTML\"].json.authors || [];\n\n// 2. Defensive check\nif (titles.length === 0) return [];\n\n// 3. Zip, Clean, and Extract\nreturn titles.map((title, index) => {\n  const rawUid = uids[index] || \"\";\n  \n  // --- DATE EXTRACTION ---\n  // Matches \"May 12 2026\" at the start of the string\n  const dateMatch = rawUid.match(/^[A-Z][a-z]{2}\\s\\d{2}\\s\\d{4}/);\n  const cleanDate = dateMatch ? dateMatch[0] : \"Unknown Date\";\n\n  // --- AUTHOR CLEANING ---\n  let rawAuthors = authors[index] || \"Unknown Authors\";\n  let cleanAuthors = rawAuthors\n    .replace(/\\[\\/search\\?q=[^\\]]+\\]/g, '') // Strip links\n    .replace(/\\n/g, ' ')                   // Strip newlines\n    .replace(/\\s+/g, ' ')                  // Consolidate spaces\n    .replace(/,\\s*,/g, ',')                // Fix double commas\n    .trim()\n    .replace(/,$/, '');                    // Remove trailing comma\n\n  // --- SCITE & ID EXTRACTION ---\n  const rawScite = scites[index] || \"0\";\n  const sciteCount = parseInt(rawScite.replace(/[^0-9]/g, ''), 10) || 0;\n\n  const idMatch = rawUid.match(/[0-9]{4}\\.[0-9]{4,5}(v[0-9]+)?/);\n  const cleanId = idMatch ? idMatch[0] : \"unknown\";\n\n  return {\n    json: {\n      title: title.trim(),\n      authors: cleanAuthors,\n      published: cleanDate,\n      abstract: abstracts[index] ? abstracts[index].trim() : \"No abstract available.\",\n      scites: sciteCount,\n      arxivId: cleanId,\n      url: `https://arxiv.org/abs/${cleanId.split('v')[0]}`\n    }\n  };\n}).filter(item => item.json.scites >= Number($env.SCIRATE_MIN_SCITES || 10));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        704
+      ],
+      "id": "5bed6621-316d-8680-7735-a608d3fba56a",
+      "name": "SciRate Fetch",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "=https://api.zotero.org/{{ $env.ZOTERO_LIBRARY_TYPE }}/{{ $env.ZOTERO_LIBRARY_ID }}/collections/{{ $env.ZOTERO_COLLECTION_KEY }}/items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "100"
+            },
+            {
+              "name": "sort",
+              "value": "dateAdded"
+            },
+            {
+              "name": "direction",
+              "value": "desc"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        48,
+        896
+      ],
+      "id": "6e3dbe42-320e-e1d2-d441-5811a905a3d2",
+      "name": "Zotero Library",
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zoteroApiCred001",
+          "name": "Zotero API key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=### ROLE & MISSION\nYou are an expert AI Research Curator specializing in {{ $env.RESEARCH_EXPERTISE }}. Your task is to evaluate a batch of newly scraped arXiv candidate papers and select the most relevant, high-impact research for immediate workflow processing (audio essays & Zotero logging) and secondary overflow archiving.\n\n---\n\n### INPUT DATA\nCandidate Papers:\n{{ JSON.stringify($('Candidate Scoring & Enrichment').all()) }}\n\n---\n\n### DOMAIN SCOPE GUIDE\nEvaluate paper title and abstract against our core research priorities:\n\n- **IN-SCOPE (High Relevance):** {{ $env.RESEARCH_FOCUS }}\n- **OUT-OF-SCOPE (Exclude):** {{ $env.RESEARCH_EXCLUDE }}\n\n---\n\n### METRICS EVALUATION GUIDE\nUse the `scoring_breakdown` object as quantitative signals to complement your qualitative assessment of the abstract:\n- `composite_score`: Overall weighted ranking signal.\n- `vector_similarity_raw`: Direct semantic cosine match (0.0 to 1.0) against our benchmark paper database. Scores > 0.75 represent strong thematic overlap.\n- `vector_match_tier` & `matched_reference_title`: The benchmark priority level (Tier 1/2/3) and title of the matched reference paper.\n- `author_tier`: Recognized researcher status ('Tier 1', 'Tier 2', or 'None').\n- `raw_scites` & `scite_boost`: SciRate community recommendations. High counts (> 10) indicate high interest and community momentum.\n\n---\n\n### SELECTION PROTOCOL\nFollow this decision sequence:\n\n1. **FILTER:** Discard any papers that fall strictly under **OUT-OF-SCOPE** topics or lack scientific substance for our domain.\n2. **PRIMARY SELECTION (0 to 3 Papers):**\n   - Pick **up to 3** top-tier papers for immediate processing.\n   - **Quality over Quantity:** You do NOT need to fill all 3 slots if fewer than 3 papers pass the high-relevance bar.\n   - Priority criteria: High `composite_score`, `author_tier` (Tier 1/2), high `vector_similarity_raw` (> 0.75), or exceptional domain alignment.\n3. **OVERFLOW SELECTION (All Remaining In-Scope Papers):**\n   - Place **ALL** remaining candidate papers that meet the **IN-SCOPE** domain criteria into the `overflow` array.\n   - Do **NOT** cap the size of the `overflow` list.\n   - Include brief rationales explaining domain relevance for each item.\n\n---\n\n### OUTPUT FORMAT\nReturn **ONLY** a valid, raw JSON object. Do not include markdown code block backticks (e.g. ```json), introductory text, or concluding notes.\n\nMust strictly adhere to this structure:\n{\n  \"primary\": [\n    {\n      \"arxivId\": \"string\",\n      \"title\": \"string\",\n      \"authors\": [\"string\"],\n      \"url\": \"string\",\n      \"rationale\": \"1-2 sentences explaining why this paper was chosen based on content alignment and scoring metrics (e.g., author tier, vector match).\"\n    }\n  ],\n  \"overflow\": [\n    {\n      \"arxivId\": \"string\",\n      \"title\": \"string\",\n      \"authors\": [\"string\"],\n      \"url\": \"string\",\n      \"rationale\": \"1 sentence summarizing domain relevance.\"\n    }\n  ]\n}",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2464,
+        832
+      ],
+      "id": "b1233750-4d69-f6fe-2cea-cc0cfad98136",
+      "name": "Scout Curator",
+      "executeOnce": true,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "32 06 2 * * 1-5"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -176,
+        864
+      ],
+      "id": "cd5559ca-b1d0-45e7-5226-4ddba525a571",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "={{ $env.SCOUT_MODEL }}",
+          "mode": "id"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        2432,
+        1056
+      ],
+      "id": "66b865e8-26a4-f1ba-8dff-4c50a8fcd028",
+      "name": "Scout Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "scoutLlmCred0001",
+          "name": "Scout LLM (OpenAI-compatible)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"primary\": {\n      \"type\": \"array\",\n      \"minItems\": 0,\n      \"maxItems\": 3,\n      \"description\": \"Up to 3 top papers selected for immediate workflow execution.\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"title\": { \"type\": \"string\" },\n          \"authors\": { \"type\": \"string\" },\n          \"arxivId\": { \"type\": \"string\" },\n          \"url\": { \"type\": \"string\" },\n          \"rationale\": { \"type\": \"string\" }\n        },\n        \"required\": [\"title\", \"authors\", \"arxivId\", \"url\", \"rationale\"]\n      }\n    },\n    \"overflow\": {\n      \"type\": \"array\",\n      \"minItems\": 0,\n      \"description\": \"All remaining relevant papers that pass domain criteria for queueing.\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"title\": { \"type\": \"string\" },\n          \"authors\": { \"type\": \"string\" },\n          \"arxivId\": { \"type\": \"string\" },\n          \"url\": { \"type\": \"string\" },\n          \"rationale\": { \"type\": \"string\" }\n        },\n        \"required\": [\"title\", \"authors\", \"arxivId\", \"url\", \"rationale\"]\n      }\n    }\n  },\n  \"required\": [\"primary\", \"overflow\"]\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2688,
+        1056
+      ],
+      "id": "cb4e5219-802e-0314-29e1-83fbc223ede1",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3120,
+        1024
+      ],
+      "id": "a3b9d67e-ea6f-82d3-468f-3c1fa0a4a689",
+      "name": "Wait",
+      "webhookId": "6dbd4478-b8cb-308a-48b1-999a6a320cf9"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "98ac3f49-0179-498b-8b42-cc9c85810097",
+              "name": "is_retry",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2896,
+        944
+      ],
+      "id": "ecc10679-dd8f-1870-7306-f95a30b89ba5",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "model": "={{ $env.SCOUT_FALLBACK_MODEL }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        2560,
+        1056
+      ],
+      "id": "04b66204-da91-904b-39cd-f492b4c5a96d",
+      "name": "Scout Fallback Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "openRouterCred01",
+          "name": "OpenRouter (fallback)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\n\nconst overflowPath = path.join('/data', 'arxiv_overflow.json');\nconst libraryPath = path.join('/data', 'citation_lookup_library.json');\n\nconst TARGET_ZOTERO_COLLECTION = $env.ZOTERO_COLLECTION_KEY;\n\n// 1. Extract LLM Output\nconst rawInput = $input.all()[0]?.json || {};\nconst input = rawInput.output || rawInput;\n\nlet primary = Array.isArray(input.primary) ? [...input.primary] : [];\nlet overflowIncoming = Array.isArray(input.overflow) ? input.overflow : [];\n\nconst formatAuthors = (auth) => Array.isArray(auth) ? auth.join(', ') : (auth || '');\nconst primaryIds = new Set(primary.map(p => p.arxivId).filter(Boolean));\n\n// 2. Load & Sync Overflow Buffer\nlet overflowBuffer = [];\nif (fs.existsSync(overflowPath)) {\n    try { \n        overflowBuffer = JSON.parse(fs.readFileSync(overflowPath, 'utf8') || '[]'); \n    } catch (e) { \n        overflowBuffer = []; \n    }\n}\n\nconst overflowIds = new Set(overflowBuffer.map(p => p.arxivId).filter(Boolean));\n\noverflowIncoming.forEach(paper => {\n    if (paper.arxivId && !overflowIds.has(paper.arxivId) && !primaryIds.has(paper.arxivId)) {\n        overflowBuffer.push(paper);\n        overflowIds.add(paper.arxivId);\n    }\n});\n\n// 3. Backfill Primary if LLM selected < 3\nlet idx = 0;\nwhile (primary.length < 3 && idx < overflowBuffer.length) {\n    const candidate = overflowBuffer[idx];\n    \n    if (!primaryIds.has(candidate.arxivId)) {\n        primary.push(candidate);\n        primaryIds.add(candidate.arxivId);\n        overflowBuffer.splice(idx, 1);\n    } else {\n        overflowBuffer.splice(idx, 1);\n    }\n}\n\n// 4. Fallback: Citation Snowball Library\nlet library = {};\nlet libraryModified = false;\n\nif (primary.length < 3 && fs.existsSync(libraryPath)) {\n    try { \n        library = JSON.parse(fs.readFileSync(libraryPath, 'utf8') || '{}'); \n    } catch (e) { \n        library = {}; \n    }\n    \n    let entries = Object.entries(library);\n\n    while (primary.length < 3 && entries.length > 0) {\n        const totalWeight = entries.reduce((sum, entry) => sum + (entry[1].hit_count || 1), 0);\n        let target = Math.random() * totalWeight;\n        let chosenIndex = 0;\n\n        for (let i = 0; i < entries.length; i++) {\n            target -= (entries[i][1].hit_count || 1);\n            if (target <= 0) { chosenIndex = i; break; }\n        }\n\n        const [key, chosenPaper] = entries[chosenIndex];\n        const paperArxivId = chosenPaper.arxiv || chosenPaper.arxivId || chosenPaper.doi || key;\n\n        if (!primaryIds.has(paperArxivId)) {\n            primary.push({\n                title: chosenPaper.title || \"Untitled Citation\",\n                arxivId: paperArxivId,\n                url: chosenPaper.arxiv ? `https://arxiv.org/abs/${chosenPaper.arxiv}` : (chosenPaper.url || \"#\"),\n                authors: chosenPaper.authors || \"\"\n            });\n            primaryIds.add(paperArxivId);\n        }\n\n        delete library[key];\n        entries.splice(chosenIndex, 1);\n        libraryModified = true;\n    }\n}\n\n// 5. Save Overflow & Library States\ntry {\n    fs.writeFileSync(overflowPath, JSON.stringify(overflowBuffer, null, 2), 'utf8');\n    if (libraryModified) {\n        fs.writeFileSync(libraryPath, JSON.stringify(library, null, 2), 'utf8');\n    }\n} catch (err) { \n    console.error(\"Write error:\", err); \n}\n\n// 6. Output formatted items with current overflow count\nconst finalOverflowCount = overflowBuffer.length;\n\nreturn primary.slice(0, 3).map(paper => ({\n    json: { \n        arxivId: paper.arxivId,\n        arxiv_id: paper.arxivId, \n        doi: paper.doi || paper.meta?.doi || null,\n        debugTitle: paper.title,\n        url: paper.url || `https://arxiv.org/abs/${paper.arxivId}`,\n        authors: formatAuthors(paper.authors),\n        zotero_target_collection: TARGET_ZOTERO_COLLECTION,\n        overflowCount: finalOverflowCount\n    }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2896,
+        608
+      ],
+      "id": "56e7fe22-979b-b848-4e91-cdb8ce547ebb",
+      "name": "Split the selection"
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\nconst path = require('path');\n\n// 1. Load the Zotero library items from the previous node\nconst zoteroItems = $items(); \n\n// 2. Build a Set of titles ONLY from parent items (avoiding \"PDF\" or \"Snapshot\" attachments)\nconst zoteroTitles = new Set();\nzoteroItems.forEach(item => {\n    const data = item.json.data;\n    // We only care about main records, not attachments or notes\n    if (data && ['journalArticle', 'preprint', 'book'].includes(data.itemType)) {\n        if (data.title) {\n            zoteroTitles.add(data.title.toLowerCase().trim());\n        }\n    }\n});\n\n// 3. Define path and read the local citation lookup file\nconst libraryPath = path.join('/data', 'citation_lookup_library.json');\n// The citation library is optional; without it there is nothing to clean up.\nif (!fs.existsSync(libraryPath)) return zoteroItems;\nlet lookupLibrary = {};\ntry { lookupLibrary = JSON.parse(fs.readFileSync(libraryPath, 'utf8') || '{}'); } catch (e) { return zoteroItems; }\n\n// 4. Iterate and remove entries whose titles already exist in Zotero\nlet removedCount = 0;\nfor (const key in lookupLibrary) {\n  const paperTitle = lookupLibrary[key].title?.toLowerCase().trim();\n  \n  if (zoteroTitles.has(paperTitle)) {\n    delete lookupLibrary[key];\n    removedCount++;\n  }\n}\n\n// 5. Write the cleaned object back to disk\nfs.writeFileSync(libraryPath, JSON.stringify(lookupLibrary, null, 2), 'utf8');\n\n// Log the cleanup for your n8n history\nconsole.log(`Cleanup complete: Removed ${removedCount} duplicates.`);\n\n// 6. Return the original items unmodified\nreturn zoteroItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        896
+      ],
+      "id": "40dfb9db-6208-bc0c-e7c0-21addc828d32",
+      "name": "Cleanup - Citation Library"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        3120,
+        416
+      ],
+      "id": "b7ddf507-f993-853c-215b-693995ca3c0c",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "RDinGXe0wJt4PzQq",
+          "mode": "list",
+          "cachedResultName": "Podcasts Generation"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "arxivID": "={{ $json.arxivId }}",
+            "podcast_type": "Briefing"
+          },
+          "matchingColumns": [
+            "arxivID"
+          ],
+          "schema": [
+            {
+              "id": "arxivID",
+              "displayName": "arxivID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "podcast_type",
+              "displayName": "podcast_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "data",
+              "displayName": "data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": true
+            },
+            {
+              "id": "DOI",
+              "displayName": "DOI",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        3344,
+        416
+      ],
+      "id": "c0ecdb47-b328-5c67-d25f-53f4f190c1a7",
+      "name": "Generate Briefing"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Fetch data from nodes\nconst scirateItems = $('SciRate Fetch').all(); \nconst arxivItems = $('arXiv Fetch').all();\nconst zoteroItems = $('Zotero Library').all();\n\n// 2. Build Zotero ID Lookup\nconst existingIds = new Set();\nzoteroItems.forEach(item => {\n  const d = item.json?.data;\n  if (!d) return;\n  const matches = [d.archiveID, d.extra, d.url, d.DOI].join(\" \").match(/[0-9]{4}\\.[0-9]{4,5}/g);\n  if (matches) matches.forEach(id => existingIds.add(id));\n});\n\n// 3. Helper to extract base ID\nconst getBaseId = (str) => {\n  if (!str) return null;\n  const match = str.match(/[0-9]{4}\\.[0-9]{4,5}/);\n  return match ? match[0] : null;\n};\n\n// 4. Merge using a Map\nconst masterMap = new Map();\n\n// Load ArXiv papers\narxivItems.forEach(item => {\n  const p = item.json;\n  const id = getBaseId(p.url || p.id);\n  if (id) {\n    masterMap.set(id, { \n      ...p, \n      arxivId: id,\n      source: 'arxiv',\n      scites: 0,\n      sortDate: p.published ? new Date(p.published).getTime() : 0\n    });\n  }\n});\n\n// Overlay SciRate papers\nscirateItems.forEach(item => {\n  const s = item.json;\n  const id = getBaseId(s.arxivId || s.url || \"\");\n  \n  if (id) {\n    const existing = masterMap.get(id);\n    const sciteCount = parseInt(s.scites) || 0;\n\n    if (existing) {\n      // Keep ArXiv as primary, just add the scite count\n      masterMap.set(id, {\n        ...existing,\n        scites: sciteCount\n      });\n    } else {\n      // Paper only found on SciRate\n      masterMap.set(id, {\n        ...s,\n        arxivId: id,\n        source: 'scirate',\n        scites: sciteCount,\n        sortDate: s.published ? new Date(s.published).getTime() : 0,\n        url: `https://arxiv.org/abs/${id}`\n      });\n    }\n  }\n});\n\n// 5. SORTING LOGIC: ArXiv first (by date), then SciRate (by scites)\nconst finalResults = Array.from(masterMap.values())\n  .filter(paper => !existingIds.has(paper.arxivId))\n  .sort((a, b) => {\n    // Priority 1: ArXiv source always comes before SciRate source\n    if (a.source === 'arxiv' && b.source !== 'arxiv') return -1;\n    if (a.source !== 'arxiv' && b.source === 'arxiv') return 1;\n\n    // Priority 2: If both are ArXiv, sort by Date (Newest first)\n    if (a.source === 'arxiv' && b.source === 'arxiv') {\n      return b.sortDate - a.sortDate;\n    }\n\n    // Priority 3: If both are SciRate, sort by Scites (Highest first)\n    if (a.source === 'scirate' && b.source === 'scirate') {\n      return b.scites - a.scites;\n    }\n\n    return 0;\n  });\n\n// 6. Final Output\nreturn finalResults.map(paper => ({\n  json: {\n    title: paper.title,\n    authors: paper.authors,\n    arxivId: paper.arxivId,\n    scites: paper.scites,\n    source: paper.source,\n    url: paper.url || `https://arxiv.org/abs/${paper.arxivId}`,\n    abstract: paper.abstract || \"\",\n    published: paper.published\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1136,
+        800
+      ],
+      "id": "7fd0ac7e-c021-072b-02c3-2f6b885e5f63",
+      "name": "Deduplication"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Function to normalize author names into 'f_lastname' format\nfunction normalizeName(name) {\n  const parts = name.replace(/[^a-zA-Z\\s]/g, '').trim().split(/\\s+/);\n  if (parts.length === 0 || !parts[0]) return '';\n  if (parts.length === 1) return parts[0].toLowerCase();\n  \n  const lastName = parts[parts.length - 1].toLowerCase();\n  const firstInitial = parts[0][0].toLowerCase();\n  return `${firstInitial}_${lastName}`;\n}\n\nreturn $input.all().map(item => {\n  const paper = item.json;\n  \n  // Parse raw author string into array of normalized names\n  const rawAuthors = (paper.authors || '').split(',');\n  const normalizedAuthors = rawAuthors\n    .map(a => normalizeName(a.trim()))\n    .filter(Boolean);\n\n  return {\n    json: {\n      ...paper,\n      normalized_authors: normalizedAuthors,\n      // Concatenate title and abstract for embedding calculation\n      embed_input: `Title: ${paper.title}\\nAbstract: ${paper.abstract}`\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        896
+      ],
+      "id": "17356324-ca59-c068-b729-461f3ebbcb61",
+      "name": "Add Author & Text Preparation"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.OLLAMA_URL }}/api/embeddings",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: $env.EMBEDDING_MODEL,\n  prompt: `Title: ${$json.title}\\n\\nAbstract: ${$json.abstract}`\n}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1552,
+        1280
+      ],
+      "id": "4e270779-e2fc-e67d-d6f8-59a3d07b2282",
+      "name": "Embedding"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(json_agg(vec), '[]'::json) AS vector_matches\nFROM (\n    SELECT \n        id,\n        arxiv_id,\n        tier,\n        payload->>'title' AS matched_title,\n        1 - (embedding <=> $1::vector) AS cosine_similarity\n    FROM paper_embeddings\n    ORDER BY embedding <=> $1::vector ASC\n    LIMIT 10\n) vec;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.embedding) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1552,
+        1104
+      ],
+      "id": "983e0175-03d7-fe47-9e35-7d0545ce61af",
+      "name": "Postgres Cosine Similarity Search",
+      "credentials": {
+        "postgres": {
+          "id": "pipelinePgCred01",
+          "name": "Pipeline Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(json_agg(matches), '[]'::json) AS author_db_matches\nFROM (\n    SELECT \n        ka.normalized_name, \n        ka.author_name, \n        ka.tier\n    FROM known_authors ka\n    WHERE ka.normalized_name IN (\n        SELECT jsonb_array_elements_text($1::jsonb)\n    )\n) matches;",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.normalized_authors) }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        1552,
+        896
+      ],
+      "id": "93142f12-7b72-3c13-5b08-fda075910793",
+      "name": "PostgreSQL Author Lookup",
+      "executeOnce": false,
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "pipelinePgCred01",
+          "name": "Pipeline Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const paper = item.json;\n  \n  // ---------------------------------------------------------------------------\n  // 1. Author Tier Evaluation\n  // ---------------------------------------------------------------------------\n  // Assumes your Merge node mapped the Postgres output to \"author_db_matches\"\n  const authorMatches = paper.author_db_matches || [];\n  let authorMultiplier = 1.0;\n  let highestAuthorTier = 'None';\n\n  authorMatches.forEach(match => {\n    if (match.tier === 'Tier 1' && authorMultiplier < 1.30) {\n      authorMultiplier = 1.30;\n      highestAuthorTier = 'Tier 1';\n    } else if (match.tier === 'Tier 2' && authorMultiplier < 1.15) {\n      authorMultiplier = 1.15;\n      highestAuthorTier = 'Tier 2';\n    }\n  });\n\n  // ---------------------------------------------------------------------------\n  // 2. Reference Paper Tiered Vector Multiplier\n  // ---------------------------------------------------------------------------\n  // Assumes your Merge node mapped the Vector Postgres output to \"vector_matches\"\n  const topVectorMatches = paper.vector_matches || [];\n  \n  const refTierMultipliers = {\n    'Tier 1': 1.30, \n    'Tier 2': 1.15, \n    'Tier 3': 1.00  \n  };\n\n  let maxWeightedSimilarity = 0.0;\n  let topMatchedRef = { title: 'None', raw_similarity: 0.0, tier: 'None', weighted_similarity: 0.0 };\n\n  topVectorMatches.forEach(match => {\n    const rawSim = match.cosine_similarity || 0.0;\n    const refTier = match.tier || 'Tier 3';\n    const refMultiplier = refTierMultipliers[refTier] || 1.00;\n    \n    const weightedSim = rawSim * refMultiplier;\n    \n    // Pick the highest scoring match after tier multiplication\n    if (weightedSim > maxWeightedSimilarity) {\n      maxWeightedSimilarity = weightedSim;\n      topMatchedRef = {\n        title: match.matched_title,\n        raw_similarity: Number(rawSim.toFixed(4)),\n        tier: refTier,\n        weighted_similarity: Number(weightedSim.toFixed(4))\n      };\n    }\n  });\n\n  // ---------------------------------------------------------------------------\n  // 3. SciRate Boost Factor\n  // ---------------------------------------------------------------------------\n  const sciteBoost = 1.0 + (Math.log10((paper.scites || 0) + 1) * 0.1);\n\n  // ---------------------------------------------------------------------------\n  // 4. Calculate Final Composite Priority Score\n  // ---------------------------------------------------------------------------\n  // Composite = (Highest Weighted Vector Similarity) * (Author Multiplier) * (SciRate Boost)\n  const compositeScore = Number((maxWeightedSimilarity * authorMultiplier * sciteBoost).toFixed(4));\n\n  // ---------------------------------------------------------------------------\n  // 5. Build Clean Output for the LLM\n  // ---------------------------------------------------------------------------\n  return {\n    json: {\n      arxivId: paper.arxivId,\n      title: paper.title,\n      authors: paper.authors,\n      url: paper.url,\n      abstract: paper.abstract,\n      published: paper.published,\n      // Explicit individual metrics for LLM decision-making\n      scoring_breakdown: {\n        composite_score: compositeScore,\n        vector_similarity_raw: topMatchedRef.raw_similarity,\n        vector_match_tier: topMatchedRef.tier,\n        vector_similarity_weighted: topMatchedRef.weighted_similarity,\n        matched_reference_title: topMatchedRef.title,\n        author_tier: highestAuthorTier,\n        author_multiplier: authorMultiplier,\n        raw_scites: paper.scites || 0,                 \n        scite_boost: Number(sciteBoost.toFixed(3))     \n      }\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        832
+      ],
+      "id": "39f873b3-52b2-1202-6954-ac6e2e55cfba",
+      "name": "Candidate Scoring & Enrichment"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        912,
+        784
+      ],
+      "id": "e9624595-6f5e-5439-65b4-0118d0a32bd7",
+      "name": "Raw arXiv Input",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "numberInputs": 3,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1776,
+        816
+      ],
+      "id": "9d1c53e4-2db4-98fe-908c-8a0086e3903e",
+      "name": "Metadata and Similarity"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const translator = String($env.ZOTERO_TRANSLATOR_URL || 'http://zotero-translator:1969').match(/^https?:\\/\\/([^:\\/]+)(?::(\\d+))?/) || [];\nconst http = require('http');\n\n// 1. Build a resilient fallback cascade to get a clean identifier Zotero loves\n// Checks for native Postgres snake_case, camelCase, or Semantic Scholar API nested IDs\nconst identifier = $json.doi \n  || $json.arxiv_id \n  || $json.arxivId \n  || ($json.externalIds ? $json.externalIds.ArXiv : null);\n\n// 2. Guard Clause: If no valid ID exists, or it's a Semantic Scholar URL, exit gracefully\nif (!identifier || String(identifier).includes('semanticscholar.org')) {\n  return { \n    json: { \n      success: false, \n      reason: \"Skipped: No clean DOI or arXiv ID available for Zotero translation.\" \n    } \n  };\n}\n\nconst fetchMetadata = (id) => {\n  return new Promise((resolve, reject) => {\n    const payload = String(id).trim();\n    \n    const options = {\n      hostname: translator[1],\n      port: Number(translator[2] || 80),\n      path: '/search',\n      method: 'POST',\n      headers: {\n        'Content-Type': 'text/plain',\n        'Content-Length': Buffer.byteLength(payload)\n      }\n    };\n\n    const req = http.request(options, (res) => {\n      let rawData = '';\n      res.setEncoding('utf8');\n      res.on('data', (chunk) => { rawData += chunk; });\n      \n      res.on('end', () => {\n        try {\n          if (res.statusCode !== 200) {\n            return reject(new Error(`Zotero translation server returned status ${res.statusCode}`));\n          }\n          const parsedData = JSON.parse(rawData);\n          resolve(parsedData[0] || parsedData);\n        } catch (e) {\n          reject(e);\n        }\n      });\n    });\n\n    req.on('error', (e) => reject(e));\n    req.write(payload);\n    req.end();\n  });\n};\n\ntry {\n  const result = await fetchMetadata(identifier);\n\n  if (result && typeof result === 'object') {\n    result.collections = [$env.ZOTERO_COLLECTION_KEY];\n  }\n  \n  return { json: { success: true, data: result } };\n} catch (error) {\n  // Return the error as data instead of crashing the whole workflow execution thread\n  return { \n    json: { \n      success: false, \n      error: error.message,\n      attemptedIdentifier: identifier\n    } \n  };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        608
+      ],
+      "id": "383fb0e6-fb41-df00-c6b7-8f7d619c73f9",
+      "name": "Prepare for Zotero"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.zotero.org/{{ $env.ZOTERO_LIBRARY_TYPE }}/{{ $env.ZOTERO_LIBRARY_ID }}/items",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "JSON",
+        "body": "={{ JSON.stringify([$json]) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        3344,
+        608
+      ],
+      "id": "5c4299f5-35fe-26c4-7e28-0ad435140550",
+      "name": "Zotero Upload",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zoteroApiCred001",
+          "name": "Zotero API key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bb81696d-a226-4a4f-b4d4-11039eabbf78",
+              "leftValue": "={{ $json.overflowCount }}",
+              "rightValue": "={{ Number($env.OVERFLOW_ALERT_THRESHOLD || 25) }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3136,
+        784
+      ],
+      "id": "67fa7f65-9598-436f-c708-c56df6ad03ea",
+      "name": "Overflow Too Large?",
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MATTERMOST_CHANNEL_ID }}",
+        "message": "=The Overflow currently holds {{ $json.overflowCount }} papers. Consider checking the overflow.",
+        "attachments": [],
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        3344,
+        784
+      ],
+      "id": "0200d5c8-4d4f-5a33-9dd5-1af74f7617c1",
+      "name": "Overflow Notification",
+      "credentials": {
+        "mattermostApi": {
+          "id": "mattermostBot001",
+          "name": "Mattermost bot"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const MIN_COMPOSITE_THRESHOLD = Number($env.SCOUT_MIN_SCORE || 0.75);\nconst MAX_PAPERS_CEILING = Number($env.SCOUT_MAX_CANDIDATES || 100);\n\n// Helper function to safely extract the score across different naming conventions\nfunction getScore(paper) {\n    if (paper.scoring_breakdown && paper.scoring_breakdown.composite_score !== undefined) {\n        return paper.scoring_breakdown.composite_score;\n    }\n    return paper.compositeScore ?? paper.composite_score ?? paper.score ?? 0;\n}\n\n// 1. Filter using the score\nconst validPapers = $input.all()\n    .map(item => item.json)\n    .filter(paper => getScore(paper) >= MIN_COMPOSITE_THRESHOLD);\n\n// 2. Sort descending by composite score\nvalidPapers.sort((a, b) => getScore(b) - getScore(a));\n\n// 3. Enforce max ceiling cap and format output for n8n\nreturn validPapers.slice(0, MAX_PAPERS_CEILING).map(paper => ({ json: paper }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2208,
+        832
+      ],
+      "id": "66cf8ec6-6a1c-be8e-a423-deac137c27f3",
+      "name": "Select Paper Slice"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1328,
+        1120
+      ],
+      "id": "6d1ab7fa-42b1-766c-0d0f-b869176e17ee",
+      "name": "Loop Over Papers for Embedding"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Categories come from ARXIV_CATEGORIES (comma separated), e.g. quant-ph,cs.LG\nreturn String($env.ARXIV_CATEGORIES || 'quant-ph')\n  .split(',')\n  .map(c => c.trim())\n  .filter(Boolean)\n  .map(cat => ({ json: { cat } }));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        48,
+        512
+      ],
+      "id": "a701dca2-09e2-dd38-ac6b-1ad4441ab71b",
+      "name": "arXiv Categories"
+    },
+    {
+      "parameters": {
+        "url": "https://export.arxiv.org/api/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "search_query",
+              "value": "=cat:{{ $json.cat }} AND lastUpdatedDate:[{{ $now.minus({ days: $now.weekday === 1 ? 3.5 : 1.5 }).toFormat('yyyyMMddHHmm') }} TO {{ $now.toFormat('yyyyMMddHHmm') }}]"
+            },
+            {
+              "name": "sortBy",
+              "value": "submittedDate"
+            },
+            {
+              "name": "sortOrder",
+              "value": "descending"
+            },
+            {
+              "name": "max_results",
+              "value": "500"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "={{ $env.HTTP_USER_AGENT }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 5000
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        256,
+        512
+      ],
+      "id": "abdf46b3-5e69-fc2c-36cb-88e36d2544f2",
+      "name": "arXiv API Query",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "executeOnce": false
+    }
+  ],
+  "connections": {
+    "XML": {
+      "main": [
+        [
+          {
+            "node": "arXiv Fetch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML": {
+      "main": [
+        [
+          {
+            "node": "SciRate Fetch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "arXiv Fetch": {
+      "main": [
+        [
+          {
+            "node": "Raw arXiv Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SciRate Fetch": {
+      "main": [
+        [
+          {
+            "node": "Raw arXiv Input",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Zotero Library": {
+      "main": [
+        [
+          {
+            "node": "Cleanup - Citation Library",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "SciRate Scout",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Zotero Library",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "arXiv Categories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Scout Curator",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Scout Curator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split the selection": {
+      "main": [
+        [
+          {
+            "node": "Prepare for Zotero",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Overflow Too Large?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Generate Briefing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Author & Text Preparation": {
+      "main": [
+        [
+          {
+            "node": "PostgreSQL Author Lookup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embedding": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Papers for Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PostgreSQL Author Lookup": {
+      "main": [
+        [
+          {
+            "node": "Metadata and Similarity",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Postgres Cosine Similarity Search": {
+      "main": [
+        [
+          {
+            "node": "Metadata and Similarity",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Raw arXiv Input": {
+      "main": [
+        [
+          {
+            "node": "Deduplication",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Metadata and Similarity": {
+      "main": [
+        [
+          {
+            "node": "Candidate Scoring & Enrichment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Candidate Scoring & Enrichment": {
+      "main": [
+        [
+          {
+            "node": "Select Paper Slice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare for Zotero": {
+      "main": [
+        [
+          {
+            "node": "Zotero Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Select Paper Slice": {
+      "main": [
+        [
+          {
+            "node": "Scout Curator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Papers for Embedding": {
+      "main": [
+        [
+          {
+            "node": "Postgres Cosine Similarity Search",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "arXiv Categories": {
+      "main": [
+        [
+          {
+            "node": "arXiv API Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SciRate Scout": {
+      "main": [
+        [
+          {
+            "node": "HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cleanup - Citation Library": {
+      "main": [
+        [
+          {
+            "node": "Raw arXiv Input",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Deduplication": {
+      "main": [
+        [
+          {
+            "node": "Add Author & Text Preparation",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Metadata and Similarity",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Loop Over Papers for Embedding",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "arXiv API Query": {
+      "main": [
+        [
+          {
+            "node": "XML",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Overflow Too Large?": {
+      "main": [
+        [
+          {
+            "node": "Overflow Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scout Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Scout Curator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scout Fallback Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Scout Curator",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Scout Curator": {
+      "main": [
+        [
+          {
+            "node": "Split the selection",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Briefing": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "rhV3vPpq1DSy2Y3E",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "active": false,
+  "pinData": {},
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
