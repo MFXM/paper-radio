@@ -175,7 +175,7 @@ slash-command webhooks.
 
 - **Automatic:** arXiv Scout runs Mon–Fri at 02:06:32 (n8n timezone `TZ`). It posts
   a warning when the overflow queue exceeds `OVERFLOW_ALERT_THRESHOLD`.
-- `/briefing 2401.01234` – a ~5 min episode for any arXiv paper.
+- `/briefing 2507.05120` – a ~5 min episode for any arXiv paper.
 - `/podcast` – upload a PDF or EPUB and pick any format, including *Lecture Series*.
 - `/overflow` – one card per queued paper with *Generate Briefing* / *Discard*.
 - `/search variational circuits` – find past episodes; *Explain* gives an LLM

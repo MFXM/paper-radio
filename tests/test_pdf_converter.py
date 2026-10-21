@@ -23,7 +23,7 @@ def make_pdf(text="Hello pipeline", title="My Paper"):
 
 
 def test_host_allowlist(pdf):
-    assert pdf.host_allowed("https://arxiv.org/pdf/1706.03762")
+    assert pdf.host_allowed("https://arxiv.org/pdf/2507.05120")
     assert pdf.host_allowed("https://export.arxiv.org/abs/1")
     assert not pdf.host_allowed("http://evilarxiv.org/x.pdf")
     assert not pdf.host_allowed("http://qdrant:6333/x.pdf")
