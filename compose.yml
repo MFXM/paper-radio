@@ -46,7 +46,7 @@ services:
     networks: [internal, egress]
 
   flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:v3.5.0
+    image: ghcr.io/flaresolverr/flaresolverr:v3.5.2
     <<: *restart
     environment:
       LOG_LEVEL: info
