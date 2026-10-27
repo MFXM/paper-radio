@@ -84,6 +84,9 @@ services:
       PODCAST_LANGUAGE: ${PODCAST_LANGUAGE:-en-gb}
       TTS_VOICE: ${TTS_VOICE:-bm_george}
       TTS_SPEED: ${TTS_SPEED:-1.0}
+      # Optional bearer token for the synchronous /v1/synthesize and /v1/voices routes; empty = open
+      # (the service is only reachable on the internal network).
+      TTS_SYNTH_TOKEN: ${TTS_SYNTH_TOKEN:-}
     volumes:
       - ./models:/models:ro
       - ./data/podcasts:/podcasts
