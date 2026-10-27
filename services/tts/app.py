@@ -8,10 +8,19 @@ Endpoints
   POST /podcast   {title, text | chapters[], tldr?, link?, voice?}  -> 202 {filename_slug}
   POST /delete    {filename}                                        -> removes files + feed item
   GET  /health
+  POST /v1/synthesize {text, voice?, speed?}                        -> audio/wav, one utterance, synchronous
+  GET  /v1/voices                                                   -> {voices[], default}
+
+The two /v1 routes are a synchronous single-utterance synthesis endpoint for other apps. They share
+the worker's Kokoro instance and never touch PODCAST_DIR or the feed. If TTS_SYNTH_TOKEN is set they
+require `Authorization: Bearer <token>`.
 """
 from __future__ import annotations
 
+import hmac
 import html
+import io
+import math
 import os
 import queue
 import re
@@ -20,9 +29,10 @@ import tempfile
 import threading
 import time
 import uuid
+import wave
 from datetime import datetime, timezone
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 
 PODCAST_DIR = os.environ.get("PODCAST_DIR", "/podcasts")
 MODEL_PATH = os.environ.get("KOKORO_MODEL", "/models/kokoro-v1.0.onnx")
@@ -35,6 +45,9 @@ DEFAULT_VOICE = os.environ.get("TTS_VOICE", "bm_george")
 TTS_SPEED = float(os.environ.get("TTS_SPEED", "1.0"))
 CHAPTER_GAP_S = float(os.environ.get("TTS_CHAPTER_GAP_SECONDS", "0.8"))
 MAX_TEXT_CHARS = int(os.environ.get("TTS_MAX_TEXT_CHARS", "400000"))
+SYNTH_TOKEN = os.environ.get("TTS_SYNTH_TOKEN") or None
+SYNTH_MAX_CHARS = 600          # one sentence or a short paragraph; longer texts belong in /podcast
+SYNTH_SPEED_RANGE = (0.5, 2.0)
 
 FEED_PATH = os.path.join(PODCAST_DIR, "feed.xml")
 SLUG_RE = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
@@ -44,6 +57,11 @@ app = Flask(__name__)
 job_queue: "queue.Queue[dict | None]" = queue.Queue()
 feed_lock = threading.Lock()
 worker_state = {"ready": False, "error": None, "current": None}
+# The worker's Kokoro instance, shared with the synchronous route once loaded.
+engine: dict = {"kokoro": None}
+# Serialises kokoro.create: the podcast worker takes it per chapter, so a synchronous request waits
+# for at most one chapter, not a whole episode.
+kokoro_lock = threading.Lock()
 
 
 # --------------------------------------------------------------------------- helpers
@@ -231,7 +249,8 @@ def synthesise(kokoro, data: dict) -> str:
 
     segments, markers, cur_ms, sr = [], [], 0, 24000
     for idx, ch in enumerate(chapters, 1):
-        samples, sr = kokoro.create(ch["text"].strip(), voice=voice, speed=TTS_SPEED, lang=lang_for(voice))
+        with kokoro_lock:
+            samples, sr = kokoro.create(ch["text"].strip(), voice=voice, speed=TTS_SPEED, lang=lang_for(voice))
         dur = int(len(samples) / sr * 1000)
         markers.append({"title": ch["title"].strip(), "start_ms": cur_ms, "end_ms": cur_ms + dur})
         segments.append(samples)
@@ -272,6 +291,7 @@ def tts_worker() -> None:
         worker_state["error"] = f"model load failed: {exc}"
         print(worker_state["error"], flush=True)
         return
+    engine["kokoro"] = kokoro
     worker_state["ready"] = True
     print("Kokoro TTS worker ready.", flush=True)
     while True:
@@ -287,6 +307,102 @@ def tts_worker() -> None:
         finally:
             worker_state["current"] = None
             job_queue.task_done()
+
+
+# --------------------------------------------------------------------------- synchronous synthesis
+def pcm16_wav(samples, sample_rate: int) -> bytes:
+    """Float samples in [-1, 1] -> a 16-bit PCM mono WAV file (bytes)."""
+    import numpy as np
+
+    pcm = (np.clip(np.asarray(samples, dtype=np.float32).reshape(-1), -1.0, 1.0) * 32767).astype("<i2")
+    out = io.BytesIO()
+    with wave.open(out, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(int(sample_rate))
+        w.writeframes(pcm.tobytes())
+    return out.getvalue()
+
+
+def voice_ids(kokoro) -> list[str]:
+    """Voice ids in the loaded voices file, sorted."""
+    get = getattr(kokoro, "get_voices", None)
+    return sorted(get() if callable(get) else (getattr(kokoro, "voices", None) or {}))
+
+
+def synth_denied():
+    """None if the request may use the /v1 routes, else a 401 response (only when TTS_SYNTH_TOKEN is set)."""
+    if not SYNTH_TOKEN:
+        return None
+    got = request.headers.get("Authorization", "")
+    if hmac.compare_digest(got.encode("utf-8"), f"Bearer {SYNTH_TOKEN}".encode("utf-8")):
+        return None
+    return jsonify(error="missing or wrong bearer token"), 401, {"WWW-Authenticate": "Bearer"}
+
+
+def loaded_engine():
+    """(kokoro, None) once the worker has loaded the model, else (None, 503 response)."""
+    if worker_state["error"]:
+        return None, (jsonify(error=worker_state["error"]), 503)
+    kokoro = engine["kokoro"]
+    if kokoro is None:
+        return None, (jsonify(error="the speech model is still loading; try again shortly"), 503, {"Retry-After": "10"})
+    return kokoro, None
+
+
+def parse_speed(raw) -> float | None:
+    """Speed from the request (default TTS_SPEED); None if it is not a number in SYNTH_SPEED_RANGE."""
+    if raw is None or raw == "":
+        return TTS_SPEED
+    try:
+        speed = float(raw)
+    except (TypeError, ValueError):
+        return None
+    lo, hi = SYNTH_SPEED_RANGE
+    return speed if math.isfinite(speed) and lo <= speed <= hi else None
+
+
+@app.post("/v1/synthesize")
+def synthesize_one():
+    denied = synth_denied()
+    if denied:
+        return denied
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = request.form.to_dict()
+    text = str(data.get("text") or "").strip()
+    if not text:
+        return jsonify(error="'text' is required"), 400
+    if len(text) > SYNTH_MAX_CHARS:
+        return jsonify(error=f"text is {len(text)} characters; the limit is {SYNTH_MAX_CHARS}, send one sentence at a time"), 413
+    speed = parse_speed(data.get("speed"))
+    if speed is None:
+        return jsonify(error=f"speed must be a number between {SYNTH_SPEED_RANGE[0]} and {SYNTH_SPEED_RANGE[1]}"), 422
+    kokoro, not_ready = loaded_engine()
+    if not_ready:
+        return not_ready
+    voice = str(data.get("voice") or DEFAULT_VOICE).strip()
+    if voice not in voice_ids(kokoro):
+        return jsonify(error=f"unknown voice '{voice[:40]}'; GET /v1/voices lists the available ones"), 422
+    try:
+        with kokoro_lock:
+            samples, sr = kokoro.create(text, voice=voice, speed=speed, lang=lang_for(voice))
+    except Exception as exc:  # model errors: report briefly, no stack trace
+        print(f"Synchronous synthesis failed: {exc}", flush=True)
+        return jsonify(error=f"synthesis failed: {type(exc).__name__}"), 500
+    return Response(pcm16_wav(samples, sr), mimetype="audio/wav",
+                    headers={"Cache-Control": "no-store", "X-Sample-Rate": str(int(sr))})
+
+
+@app.get("/v1/voices")
+def list_voices():
+    denied = synth_denied()
+    if denied:
+        return denied
+    kokoro, not_ready = loaded_engine()
+    if not_ready:
+        return not_ready
+    return jsonify(voices=voice_ids(kokoro), default=DEFAULT_VOICE)
 
 
 # --------------------------------------------------------------------------- routes

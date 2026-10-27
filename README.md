@@ -215,12 +215,33 @@ changed a key or URL that belongs to a credential).
 | `GEMINI_API_KEY`, `GEMINI_SCRIPT_MODEL`, `GEMINI_TLDR_MODEL` | – | Optional Gemini for Briefings and TL;DRs |
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Ollama embedding model; must produce 768-d vectors (see schema) |
 | `TTS_VOICE`, `TTS_SPEED` | `bm_george`, `1.0` | [Kokoro voice](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md); `b*` voices use British English |
+| `TTS_SYNTH_TOKEN` | – | Optional bearer token for the synchronous synthesis routes (see below); empty = open |
 | `PODCAST_TITLE`, `PODCAST_DESCRIPTION`, `PODCAST_LANGUAGE` | | Feed metadata (written when `feed.xml` is first created) |
 | `N8N_API_KEY` | – | Optional; enables the *Retry* button on error cards |
 
 The schedule and the prompts are edited in the n8n UI (open the workflow, change
 the *Schedule Trigger* or the agent node). Put a `cover.png` into `data/podcasts/`
 for feed artwork.
+
+### Synchronous synthesis for other apps
+
+Besides the podcast queue, the TTS service offers a synchronous single-utterance synthesis endpoint for other apps:
+
+| Route | Request | Response |
+|---|---|---|
+| `POST /v1/synthesize` | JSON or form: `text` (required, ≤ 600 characters), `voice` (optional, default `TTS_VOICE`), `speed` (optional, 0.5–2.0, default `TTS_SPEED`) | `audio/wav`, 16-bit PCM mono at the model's sample rate |
+| `GET /v1/voices` | – | `{"voices": [...], "default": "bm_george"}` |
+
+Errors are JSON `{"error": "..."}`: 400 (empty text), 413 (text too long), 422 (unknown voice or speed out of range),
+401 (token), 503 (model still loading). Send one sentence or a short paragraph per request; long texts belong in `/podcast`.
+The routes share the model with the podcast worker and wait for at most one chapter of a running episode. They never
+write to the podcast folder or the feed.
+
+Set `TTS_SYNTH_TOKEN` to require `Authorization: Bearer <token>` on both routes; leave it empty to keep them open
+(the service is only reachable on the internal Docker network).
+
+    curl -s -X POST http://tts:5000/v1/synthesize -H 'Content-Type: application/json' \
+         -H "Authorization: Bearer $TTS_SYNTH_TOKEN" -d '{"text":"Hello there.","voice":"bf_emma"}' -o hello.wav
 
 ## Ranking papers
 
