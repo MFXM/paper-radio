@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1 - 2026-10-27
 
 - TTS service: synchronous single-utterance synthesis for other apps, `POST /v1/synthesize`
   (WAV) and `GET /v1/voices`, optionally protected by `TTS_SYNTH_TOKEN`. The routes share the
