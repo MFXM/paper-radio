@@ -248,7 +248,18 @@ Errors are JSON `{"error": "..."}`: 400 (empty text), 413 (text too long), 422 (
 The routes share the model with the podcast worker and wait for at most one chapter of a running episode. They never
 write to the podcast folder or the feed.
 
-Set `TTS_SYNTH_TOKEN` to require `Authorization: Bearer <token>` on both routes; leave it empty to keep them open
+Apps that render their own audio can publish it as an episode:
+
+| Route | Request | Response |
+|---|---|---|
+| `POST /v1/episode` | multipart form: `audio` (PCM WAV, ≤ `TTS_MAX_EPISODE_MB`, default 200), `title` (≤ 300), `text` (transcript), `tldr`, `link` (http/https) | 201 `{"filename_slug": "episode_<ts>_<id>", "duration_s", "audio_url", "transcript_url"}` |
+| `DELETE /v1/episode/<slug>` | – | `{"deleted": true}`; 404 if unknown, 400 for slugs that are not uploads |
+
+The WAV is encoded to MP3 right away (no queue), with an HTML transcript and a feed item. Prefix the title with a type
+(e.g. `Concept - <title>`) to make uploads filterable in podcast apps next to `Briefing - …`. Uploads can only delete
+uploads: generated episodes (`podcast_…`) are out of reach of this route.
+
+Set `TTS_SYNTH_TOKEN` to require `Authorization: Bearer <token>` on all `/v1` routes; leave it empty to keep them open
 (the service is only reachable on the internal Docker network).
 
     curl -s -X POST http://tts:5000/v1/synthesize -H 'Content-Type: application/json' \
