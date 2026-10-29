@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.1 - 2026-10-29
 
 - TTS service: `POST /v1/episode` publishes audio another app has already rendered (multipart WAV + title,
   transcript, TL;DR, link). It is encoded to MP3 at once, with transcript and feed item, without queueing behind
