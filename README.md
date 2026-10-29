@@ -147,6 +147,17 @@ instructions. In short:
 | `/curation` | `<WEBHOOK_URL>webhook/list-curation` | – |
 | `/search` | `<WEBHOOK_URL>webhook/paper-search` | search text |
 
+Other apps (e.g. a knowledge base) can use three more webhooks without Mattermost:
+
+| Webhook | Method | Body | Does |
+|---|---|---|---|
+| `webhook/podcast-file` | POST multipart | `File` (PDF), `podcast_type` (`Briefing`/`Breakdown`/`Deep Dive`), `doi`, `title` | Episode from a PDF, like `/podcast`; the feed link is the DOI |
+| `webhook/curate-paper-direct` | POST JSON | `tier`, `arxiv_id` or `doi` + `title` + `authors` + `abstract` | Adds/updates a reference paper, like `/curate` |
+| `webhook/curation-status` | GET | – | `{ "papers": [{ arxiv_id, doi, tier, title }] }` |
+
+`podcast-file` hands the PDF to *Podcasts Generation* as n8n binary data. That needs n8n's filesystem
+binary-data mode, the default in n8n 2.x: do not set `N8N_DEFAULT_BINARY_DATA_MODE=default`.
+
 Command names are up to you; only the URLs matter. Buttons call
 `overflow-callback`, `llm-search-harder`, `mattermost-search-paginate` and
 `retry-execution` on the same base URL and need no extra setup.

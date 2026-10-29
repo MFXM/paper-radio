@@ -102,3 +102,34 @@ def test_code_nodes_avoid_missing_sandbox_globals(path):
     for node in load(path)["nodes"]:
         code = node.get("parameters", {}).get("jsCode", "")
         assert not re.search(r"\bnew URL\(|\bURLSearchParams\b", code), node["name"]
+
+
+
+def test_qkb_webhooks():
+    """Webhooks for other apps: present, wired into the existing flows, and the curation input matches the form."""
+    wf = load(ROOT / "n8n" / "workflows" / "mattermost-control.json")
+    nodes = {n["name"]: n for n in wf["nodes"]}
+    paths = {n["parameters"].get("path"): n for n in wf["nodes"] if n["type"].endswith(".webhook")}
+    assert {"podcast-file", "curate-paper-direct", "curation-status"} <= set(paths)
+    assert len([p for p in paths if p]) == len(set(p for p in paths if p)), "duplicate webhook paths"
+    gen = nodes["Generate from QKB File"]["parameters"]
+    assert gen["workflowId"]["value"] == nodes["Generate from File"]["parameters"]["workflowId"]["value"]
+    assert gen["workflowInputs"]["value"]["data"] == "={{ $binary.File }}" and gen["workflowInputs"]["value"]["arxivID"] == "="
+    assert nodes["Notify QKB File Podcast"].get("onError") == "continueRegularOutput"
+    out = wf["connections"]["Tier Change Only?"]["main"]
+    assert [c["node"] for c in out[1]] == ["Input Mode Selection"]
+    labels = {f["fieldLabel"] for f in nodes["Curation Form Node"]["parameters"]["formFields"]["values"]}
+    code = nodes["QKB Curation Input"]["parameters"]["jsCode"]
+    used = set(re.findall(r"'([A-Z][A-Za-z ]+)': ", code))
+    assert used and used <= labels, used - labels
+    modes = [r["conditions"]["conditions"][0]["rightValue"] for r in nodes["Input Mode Selection"]["parameters"]["rules"]["values"]]
+    assert "'arXiv ID'" in code and "'Manual Entry'" in code and {"arXiv ID", "Manual Entry"} <= set(modes)
+    assert nodes["QKB Curation Status"]["parameters"]["responseMode"] == "responseNode"
+
+
+
+def test_curation_stores_missing_ids_as_null():
+    """n8n renders a missing value as the text 'null' in queryReplacement; it must not reach arxiv_id (the upsert key)."""
+    wf = load(ROOT / "n8n" / "workflows" / "mattermost-control.json")
+    q = {n["name"]: n for n in wf["nodes"]}["Update Paper DB"]["parameters"]["query"]
+    assert "NULLIF(NULLIF($2, ''), 'null')" in q and "NULLIF(NULLIF($3, ''), 'null')" in q

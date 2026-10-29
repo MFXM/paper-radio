@@ -772,7 +772,7 @@
     {
       "parameters": {
         "operation": "executeQuery",
-        "query": "INSERT INTO paper_embeddings (tier, arxiv_id, doi, embedding, payload)\nVALUES (\n    $1,\n    $2,\n    $3,\n    $4::vector,\n    $5::jsonb\n)\nON CONFLICT (arxiv_id) WHERE arxiv_id IS NOT NULL \nDO UPDATE SET\n    tier = EXCLUDED.tier,\n    embedding = EXCLUDED.embedding,\n    payload = EXCLUDED.payload\nRETURNING id, arxiv_id, tier, payload->>'title' AS title;",
+        "query": "INSERT INTO paper_embeddings (tier, arxiv_id, doi, embedding, payload)\nVALUES (\n    $1,\n    NULLIF(NULLIF($2, ''), 'null'),\n    NULLIF(NULLIF($3, ''), 'null'),\n    $4::vector,\n    $5::jsonb\n)\nON CONFLICT (arxiv_id) WHERE arxiv_id IS NOT NULL \nDO UPDATE SET\n    tier = EXCLUDED.tier,\n    embedding = EXCLUDED.embedding,\n    payload = EXCLUDED.payload\nRETURNING id, arxiv_id, tier, payload->>'title' AS title;",
         "options": {
           "queryReplacement": "={{ $json.tier }},{{ $json.arxiv_id }},{{ $json.doi }},{{ $json.embedding }},{{ $json.payload }}"
         }
@@ -1641,6 +1641,338 @@
           "name": "Mattermost bot"
         }
       }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "podcast-file",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -272,
+        1600
+      ],
+      "id": "923ad6b8-c231-4e01-8dea-0c3ab4c60815",
+      "name": "QKB File Podcast",
+      "webhookId": "9cdb2cc7-ec63-4c17-a26f-ddab2cbbc651"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "888ba9d3-ce01-4dda-8834-6ebe6355b54f",
+              "leftValue": "={{ $json.body.podcast_type }}",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              },
+              "rightValue": "^(Briefing|Breakdown|Deep Dive)$"
+            },
+            {
+              "id": "c9728600-84fa-44a3-b337-b63124abd1cd",
+              "leftValue": "={{ !!$binary.File }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        1600
+      ],
+      "id": "5134230c-3d27-4b8b-913c-280e6318c97f",
+      "name": "Valid File Request?"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "RDinGXe0wJt4PzQq",
+          "mode": "list",
+          "cachedResultName": "Podcasts Generation"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "arxivID": "=",
+            "data": "={{ $binary.File }}",
+            "podcast_type": "={{ $json.body.podcast_type }}",
+            "DOI": "={{ $json.body.doi || '' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "arxivID",
+              "displayName": "arxivID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "podcast_type",
+              "displayName": "podcast_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "data",
+              "displayName": "data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "object",
+              "removed": false
+            },
+            {
+              "id": "DOI",
+              "displayName": "DOI",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        272,
+        1600
+      ],
+      "id": "340a173e-c545-4c36-b765-6618d0fa344c",
+      "name": "Generate from QKB File"
+    },
+    {
+      "parameters": {
+        "channelId": "={{ $env.MATTERMOST_CHANNEL_ID }}",
+        "message": "=Generating Podcast ({{ $json.body.podcast_type }}) from QKB: {{ $json.body.title || $json.body.doi || 'uploaded PDF' }}",
+        "attachments": [],
+        "otherOptions": {}
+      },
+      "type": "n8n-nodes-base.mattermost",
+      "typeVersion": 1,
+      "position": [
+        272,
+        1800
+      ],
+      "id": "01db6bef-dd28-4076-871c-b7f668991475",
+      "name": "Notify QKB File Podcast",
+      "credentials": {
+        "mattermostApi": {
+          "id": "mattermostBot001",
+          "name": "Mattermost bot"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "curate-paper-direct",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -272,
+        2100
+      ],
+      "id": "f111708a-687e-4cdf-be6e-a7285cdfba54",
+      "name": "QKB Curation",
+      "webhookId": "d94d87e4-b194-4bac-8d89-0e4bba151dbc"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT NULLIF(arxiv_id, 'null') AS arxiv_id, NULLIF(doi, 'null') AS doi, tier FROM paper_embeddings\nWHERE $1 <> '' AND lower(doi) = lower($1)\nLIMIT 1;",
+        "options": {
+          "queryReplacement": "={{ String($json.body.doi || '').trim() }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        2100
+      ],
+      "id": "08325da4-11d8-42e8-b5a3-7d2b2c7bbfae",
+      "name": "Find Curated by DOI",
+      "credentials": {
+        "postgres": {
+          "id": "pipelinePgCred01",
+          "name": "Pipeline Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Map a direct request onto the curation form's fields, so the form's branches do the rest.\n// Body: { tier: 'Tier 1'|'Tier 2'|'Tier 3', arxiv_id?, doi?, title?, authors? (list or string), abstract? }\nconst body = $('QKB Curation').first().json.body || {};\nconst found = $input.first().json || {};\n// older rows store a missing id as the text 'null'\nconst clean = (v) => { const s = String(v ?? '').trim(); return ['null', 'undefined'].includes(s.toLowerCase()) ? '' : s; };\nconst tier = String(body.tier || '').trim();\nif (!['Tier 1', 'Tier 2', 'Tier 3'].includes(tier)) {\n  throw new Error('tier must be Tier 1, Tier 2 or Tier 3');\n}\nconst arxiv = clean(body.arxiv_id) || clean(found.arxiv_id);\nconst doi = clean(body.doi);\nconst authors = Array.isArray(body.authors) ? body.authors.join(', ') : String(body.authors || '');\n// A DOI-only paper that is already curated: only change its tier (paper_embeddings is unique on arxiv_id only,\n// so inserting it again would duplicate it).\nif (!arxiv && clean(found.doi)) {\n  return [{ json: { tier_only: true, tier, doi } }];\n}\nif (!arxiv && !(String(body.title || '').trim() && String(body.abstract || '').trim())) {\n  throw new Error('need an arXiv id, or a title and an abstract');\n}\nreturn [{\n  json: {\n    tier_only: false,\n    'Target Tier': tier,\n    'Input Mode': arxiv ? 'arXiv ID' : 'Manual Entry',\n    'arXiv Link or ID': arxiv,\n    'BibTeX Entry': '',\n    'Paper Title': String(body.title || '').trim(),\n    'Authors': authors,\n    'Abstract': String(body.abstract || '').trim(),\n    'DOI': doi,\n  },\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        2100
+      ],
+      "id": "9cd9394e-edd1-4ec8-ab76-14d2c48da256",
+      "name": "QKB Curation Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "dd877ae5-71c9-4ee6-98be-28c662d9b37e",
+              "leftValue": "={{ $json.tier_only }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        544,
+        2100
+      ],
+      "id": "93cf8c71-d2bb-4cba-82d8-ba694c7213bf",
+      "name": "Tier Change Only?"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE paper_embeddings SET tier = $1\nWHERE (arxiv_id IS NULL OR arxiv_id = 'null') AND lower(doi) = lower($2)\nRETURNING id, doi, tier;",
+        "options": {
+          "queryReplacement": "={{ $json.tier }},{{ $json.doi }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        816,
+        1980
+      ],
+      "id": "830b2258-39fc-437e-89a4-321c4566d7c0",
+      "name": "Update Tier by DOI",
+      "credentials": {
+        "postgres": {
+          "id": "pipelinePgCred01",
+          "name": "Pipeline Postgres"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "curation-status",
+        "options": {},
+        "responseMode": "responseNode"
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -272,
+        2500
+      ],
+      "id": "68fdb6e1-463f-4eb5-bddd-d5d91e5170da",
+      "name": "QKB Curation Status",
+      "webhookId": "1dca0880-3c03-4967-89ac-4531b0476a02"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT NULLIF(arxiv_id, 'null') AS arxiv_id, NULLIF(doi, 'null') AS doi, tier, payload->>'title' AS title\nFROM paper_embeddings\nORDER BY id DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        2500
+      ],
+      "id": "6b918fb6-faa1-4e40-91ca-6a5c3d8a17a7",
+      "name": "Fetch Curated Papers",
+      "credentials": {
+        "postgres": {
+          "id": "pipelinePgCred01",
+          "name": "Pipeline Postgres"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// One JSON object: { papers: [{ arxiv_id, doi, tier, title }] }\nconst papers = $input.all().map((i) => i.json).filter((p) => p && p.tier);\nreturn [{ json: { papers } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        2500
+      ],
+      "id": "95507132-87fd-4b6d-8080-3059e1b542d7",
+      "name": "Pack Curation Status"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        544,
+        2500
+      ],
+      "id": "5f6dffe9-ff02-4fe6-a58d-84214b1a80f3",
+      "name": "Respond Curation Status"
     }
   ],
   "connections": {
@@ -2210,6 +2542,117 @@
         [
           {
             "node": "Podcast Upload Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QKB File Podcast": {
+      "main": [
+        [
+          {
+            "node": "Valid File Request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valid File Request?": {
+      "main": [
+        [
+          {
+            "node": "Generate from QKB File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notify QKB File Podcast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QKB Curation": {
+      "main": [
+        [
+          {
+            "node": "Find Curated by DOI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find Curated by DOI": {
+      "main": [
+        [
+          {
+            "node": "QKB Curation Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QKB Curation Input": {
+      "main": [
+        [
+          {
+            "node": "Tier Change Only?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tier Change Only?": {
+      "main": [
+        [
+          {
+            "node": "Update Tier by DOI",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Input Mode Selection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "QKB Curation Status": {
+      "main": [
+        [
+          {
+            "node": "Fetch Curated Papers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Curated Papers": {
+      "main": [
+        [
+          {
+            "node": "Pack Curation Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pack Curation Status": {
+      "main": [
+        [
+          {
+            "node": "Respond Curation Status",
             "type": "main",
             "index": 0
           }
