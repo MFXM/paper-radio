@@ -200,3 +200,115 @@ def test_podcast_worker_takes_the_lock_per_chapter(tmp_path, monkeypatch):
     mod.synthesise(fake, {"title": "T", "text": "# A\nOne.\n\n---\n\n# B\nTwo.", "filename_slug": "podcast_1_abc123"})
     assert [c["text"] for c in fake.calls] == ["One.", "Two."]  # FakeKokoro.create asserts the lock is held
     assert not mod.kokoro_lock.locked()
+
+
+
+# --------------------------------------------------------------------------- uploaded episodes (/v1/episode)
+def tone_wav(seconds=0.5, rate=24000):
+    import io, math, struct, wave
+    out = io.BytesIO()
+    with wave.open(out, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(rate)
+        w.writeframes(b"".join(struct.pack("<h", int(8000 * math.sin(i / 20))) for i in range(int(seconds * rate))))
+    return out.getvalue()
+
+
+def episode_app(tmp_path, monkeypatch, token="s3cret", real_ffmpeg=False):
+    mod, fake, client = synth_app(tmp_path, monkeypatch, token=token)
+    (tmp_path / "podcasts").mkdir(exist_ok=True)
+    mod.init_feed()
+    seen = []
+    if not real_ffmpeg:
+        def fake_ffmpeg(cmd, check):
+            seen.append(cmd)
+            open(cmd[-1], "wb").write(b"ID3" + open(cmd[cmd.index("-i") + 1], "rb").read()[:100])
+        monkeypatch.setattr(mod.subprocess, "run", fake_ffmpeg)
+    return mod, fake, client, seen
+
+
+def upload(client, token="s3cret", **fields):
+    import io
+    data = {"title": "Concept - Qubit", "text": "A qubit is a unit.\n\nIt has two states.", "tldr": "A qubit is a unit.",
+            "link": "http://10.0.0.221:8090/#/n/qubit", **fields}
+    if "audio" not in fields:
+        data["audio"] = (io.BytesIO(tone_wav()), "narration.wav", "audio/wav")
+    elif fields["audio"] is None:
+        data.pop("audio")
+    h = {"Authorization": f"Bearer {token}"} if token else {}
+    return client.post("/v1/episode", data=data, headers=h, content_type="multipart/form-data")
+
+
+def test_episode_upload_encodes_and_adds_feed_item(tmp_path, monkeypatch):
+    import xml.dom.minidom
+    mod, fake, client, seen = episode_app(tmp_path, monkeypatch)
+    r = upload(client)
+    assert r.status_code == 201, r.get_json()
+    body = r.get_json()
+    slug = body["filename_slug"]
+    assert re.match(r"^episode_\d+_[0-9a-f]{6}$", slug) and body["duration_s"] == 0.5
+    pod = tmp_path / "podcasts"
+    assert (pod / f"{slug}.mp3").exists() and (pod / f"{slug}.html").exists()
+    assert "It has two states." in (pod / f"{slug}.html").read_text(encoding="utf-8")
+    feed = (pod / "feed.xml").read_text(encoding="utf-8")
+    xml.dom.minidom.parseString(feed)
+    assert "<![CDATA[Concept - Qubit]]>" in feed and f"{slug}.mp3" in feed and "http://10.0.0.221:8090/#/n/qubit" in feed
+    meta = [c for c in seen[0] if c.endswith(".txt")]
+    assert seen[0][-1].endswith(f"{slug}.mp3") and meta                     # chapter/title metadata passed to ffmpeg
+    assert fake.calls == [] and mod.job_queue.qsize() == 0                  # nothing synthesised, nothing queued
+    assert len(list(pod.glob("*.wav"))) == 0
+
+
+def test_episode_upload_validation(tmp_path, monkeypatch):
+    import io
+    mod, fake, client, seen = episode_app(tmp_path, monkeypatch)
+    assert upload(client, token=None).status_code == 401
+    assert upload(client, token="wrong").status_code == 401
+    assert upload(client, audio=None).status_code == 400
+    assert upload(client, title="  ").status_code == 400
+    assert upload(client, title="x" * 301).status_code == 413
+    assert upload(client, link="javascript:alert(1)").status_code == 400
+    r = upload(client, audio=(io.BytesIO(b"not a wav"), "n.wav", "audio/wav"))
+    assert r.status_code == 415
+    monkeypatch.setattr(mod, "MAX_EPISODE_BYTES", 1000)
+    assert upload(client).status_code == 413
+    assert seen == [] and "<item>" not in (tmp_path / "podcasts" / "feed.xml").read_text(encoding="utf-8")
+
+
+def test_episode_encode_failure_leaves_nothing(tmp_path, monkeypatch):
+    mod, fake, client, seen = episode_app(tmp_path, monkeypatch)
+
+    def broken(cmd, check):
+        open(cmd[-1], "wb").write(b"half")
+        raise mod.subprocess.CalledProcessError(1, cmd)
+
+    monkeypatch.setattr(mod.subprocess, "run", broken)
+    r = upload(client)
+    assert r.status_code == 500
+    assert sorted(p.name for p in (tmp_path / "podcasts").iterdir()) == ["feed.xml"]
+
+
+def test_episode_delete_only_uploaded_ones(tmp_path, monkeypatch):
+    mod, fake, client, seen = episode_app(tmp_path, monkeypatch)
+    auth = {"Authorization": "Bearer s3cret"}
+    slug = upload(client).get_json()["filename_slug"]
+    # a generated episode in the same feed must stay out of reach
+    mod.append_feed_item(mod.feed_item("Briefing - X", "podcast_1_abc123", 10, "", "", "t", "Mon, 01 Jan 2026 00:00:00 +0000"))
+    assert client.delete("/v1/episode/podcast_1_abc123", headers=auth).status_code == 400
+    assert client.delete(f"/v1/episode/{slug}").status_code == 401
+    r = client.delete(f"/v1/episode/{slug}", headers=auth)
+    assert r.status_code == 200 and r.get_json() == {"deleted": True, "filename_slug": slug}
+    feed = (tmp_path / "podcasts" / "feed.xml").read_text(encoding="utf-8")
+    assert slug not in feed and "podcast_1_abc123" in feed
+    assert not (tmp_path / "podcasts" / f"{slug}.mp3").exists()
+    assert client.delete(f"/v1/episode/{slug}", headers=auth).status_code == 404
+
+
+def test_episode_upload_real_ffmpeg(tmp_path, monkeypatch):
+    import shutil
+    if not shutil.which("ffmpeg"):
+        pytest.skip("ffmpeg not installed")
+    mod, fake, client, seen = episode_app(tmp_path, monkeypatch, real_ffmpeg=True)
+    r = upload(client)
+    assert r.status_code == 201, r.get_json()
+    mp3 = (tmp_path / "podcasts" / f"{r.get_json()['filename_slug']}.mp3").read_bytes()
+    assert mp3[:3] == b"ID3" and len(mp3) > 1000

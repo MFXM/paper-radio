@@ -10,10 +10,17 @@ Endpoints
   GET  /health
   POST /v1/synthesize {text, voice?, speed?}                        -> audio/wav, one utterance, synchronous
   GET  /v1/voices                                                   -> {voices[], default}
+  POST /v1/episode  multipart: audio (WAV), title, text?, tldr?, link? -> 201 {filename_slug}, finished audio
+  DELETE /v1/episode/<slug>                                         -> removes an uploaded episode
 
 The two /v1 routes are a synchronous single-utterance synthesis endpoint for other apps. They share
 the worker's Kokoro instance and never touch PODCAST_DIR or the feed. If TTS_SYNTH_TOKEN is set they
 require `Authorization: Bearer <token>`.
+
+/v1/episode publishes audio another app has already rendered (e.g. a QKB page narration): the WAV is encoded
+to MP3 right away, with its transcript and feed item, without waiting behind queued /podcast jobs. Uploaded
+episodes get slugs episode_<ts>_<id>, and DELETE /v1/episode only removes those, never generated episodes.
+Both use the same bearer token as the other /v1 routes.
 """
 from __future__ import annotations
 
@@ -48,9 +55,12 @@ MAX_TEXT_CHARS = int(os.environ.get("TTS_MAX_TEXT_CHARS", "400000"))
 SYNTH_TOKEN = os.environ.get("TTS_SYNTH_TOKEN") or None
 SYNTH_MAX_CHARS = 600          # one sentence or a short paragraph; longer texts belong in /podcast
 SYNTH_SPEED_RANGE = (0.5, 2.0)
+MAX_EPISODE_BYTES = int(float(os.environ.get("TTS_MAX_EPISODE_MB", "200")) * 2**20)   # an uploaded WAV (~45 min at 24 kHz)
+MAX_TITLE_CHARS = 300
 
 FEED_PATH = os.path.join(PODCAST_DIR, "feed.xml")
 SLUG_RE = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
+UPLOAD_SLUG_RE = re.compile(r"^episode_\d{1,12}_[0-9a-f]{6}$")
 CHAPTER_SEPARATOR = "\n\n---\n\n"
 
 app = Flask(__name__)
@@ -259,28 +269,51 @@ def synthesise(kokoro, data: dict) -> str:
             segments.append(np.zeros(int(sr * CHAPTER_GAP_S), dtype=samples.dtype))
             cur_ms += int(CHAPTER_GAP_S * 1000)
 
-    wav_path = meta_path = None
+    wav_path = None
     try:
         fd, wav_path = tempfile.mkstemp(suffix=".wav"); os.close(fd)
         sf.write(wav_path, np.concatenate(segments), sr)
+        mp3_path = encode_mp3(wav_path, title, markers, slug)
+    finally:
+        if wav_path and os.path.exists(wav_path):
+            os.remove(wav_path)
+    publish(title, slug, mp3_path, text, data.get("tldr", ""), data.get("link", ""))
+    return mp3_path
+
+
+def encode_mp3(wav_path: str, title: str, markers: list[dict], slug: str) -> str:
+    """WAV -> PODCAST_DIR/<slug>.mp3 (128 kbit/s, ID3 title and chapter markers); returns the MP3 path."""
+    meta_path = None
+    try:
         fd, meta_path = tempfile.mkstemp(suffix=".txt"); os.close(fd)
         with open(meta_path, "w", encoding="utf-8") as f:
             f.write(ffmetadata(title, markers))
         mp3_path = os.path.join(PODCAST_DIR, f"{slug}.mp3")
         subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", wav_path, "-i", meta_path,
                         "-map_metadata", "1", "-id3v2_version", "3", "-b:a", "128k", mp3_path], check=True)
+        return mp3_path
     finally:
-        for p in (wav_path, meta_path):
-            if p and os.path.exists(p):
-                os.remove(p)
+        if meta_path and os.path.exists(meta_path):
+            os.remove(meta_path)
 
+
+def publish(title: str, slug: str, mp3_path: str, text: str, tldr: str, link: str) -> None:
+    """Write the HTML transcript of an encoded episode and add it to the feed."""
     with open(os.path.join(PODCAST_DIR, f"{slug}.html"), "w", encoding="utf-8") as f:
-        f.write(build_html_transcript(title, data.get("link", ""), text))
-
+        f.write(build_html_transcript(title, link, text))
     pub = datetime.now(timezone.utc).strftime("%a, %d %b %Y %H:%M:%S +0000")
-    append_feed_item(feed_item(title, slug, os.path.getsize(mp3_path), data.get("tldr", ""),
-                               data.get("link", ""), text, pub))
-    return mp3_path
+    append_feed_item(feed_item(title, slug, os.path.getsize(mp3_path), tldr, link, text, pub))
+
+
+def remove_episode(slug: str) -> tuple[bool, bool]:
+    """Delete <slug>.mp3/.html and its feed item; (mp3 deleted, feed updated)."""
+    deleted = False
+    for ext in (".mp3", ".html"):
+        p = os.path.join(PODCAST_DIR, slug + ext)
+        if os.path.exists(p):
+            os.remove(p)
+            deleted = deleted or ext == ".mp3"
+    return deleted, remove_feed_item(slug)
 
 
 def tts_worker() -> None:
@@ -405,6 +438,71 @@ def list_voices():
     return jsonify(voices=voice_ids(kokoro), default=DEFAULT_VOICE)
 
 
+# --------------------------------------------------------------------------- finished audio
+def wav_duration_ms(path: str) -> int | None:
+    """Length of a PCM WAV in ms, None if the file is not one or is empty."""
+    try:
+        with wave.open(path) as w:
+            frames, rate = w.getnframes(), w.getframerate()
+    except (wave.Error, EOFError):
+        return None
+    return int(frames / rate * 1000) if frames and rate else None
+
+
+@app.post("/v1/episode")
+def upload_episode():
+    denied = synth_denied()
+    if denied:
+        return denied
+    if (request.content_length or 0) > MAX_EPISODE_BYTES:
+        return jsonify(error=f"upload larger than {MAX_EPISODE_BYTES // 2**20} MB (TTS_MAX_EPISODE_MB)"), 413
+    audio = request.files.get("audio")
+    title = " ".join(str(request.form.get("title") or "").split())
+    text = str(request.form.get("text") or "")
+    tldr = str(request.form.get("tldr") or "")[:1000]
+    link = str(request.form.get("link") or "").strip()
+    if audio is None or not title:
+        return jsonify(error="'audio' (a WAV file) and 'title' are required"), 400
+    if len(title) > MAX_TITLE_CHARS or len(text) > MAX_TEXT_CHARS:
+        return jsonify(error=f"title is limited to {MAX_TITLE_CHARS}, text to {MAX_TEXT_CHARS} characters"), 413
+    if link and not re.match(r"^https?://\S{1,490}$", link):
+        return jsonify(error="link must be an http(s) URL"), 400
+    os.makedirs(PODCAST_DIR, exist_ok=True)
+    slug = f"episode_{int(time.time())}_{uuid.uuid4().hex[:6]}"
+    fd, wav_path = tempfile.mkstemp(suffix=".wav"); os.close(fd)
+    try:
+        audio.save(wav_path)
+        dur = wav_duration_ms(wav_path)
+        if dur is None:
+            return jsonify(error="audio must be a non-empty PCM WAV"), 415
+        mp3_path = encode_mp3(wav_path, title, [{"title": title, "start_ms": 0, "end_ms": dur}], slug)
+    except subprocess.CalledProcessError as exc:
+        print(f"Encoding uploaded episode '{title}' failed: {exc}", flush=True)
+        partial = os.path.join(PODCAST_DIR, f"{slug}.mp3")
+        if os.path.exists(partial):
+            os.remove(partial)
+        return jsonify(error="encoding the audio failed"), 500
+    finally:
+        os.remove(wav_path)
+    publish(title, slug, mp3_path, text, tldr, link)
+    print(f"Published uploaded episode '{title}' -> {mp3_path}", flush=True)
+    return jsonify(filename_slug=slug, duration_s=round(dur / 1000, 1),
+                   audio_url=f"{BASE_URL}/{slug}.mp3", transcript_url=f"{BASE_URL}/{slug}.html"), 201
+
+
+@app.delete("/v1/episode/<slug>")
+def delete_uploaded_episode(slug: str):
+    denied = synth_denied()
+    if denied:
+        return denied
+    if not UPLOAD_SLUG_RE.match(slug):
+        return jsonify(error="only uploaded episodes (episode_<ts>_<id>) can be removed here"), 400
+    deleted, feed_updated = remove_episode(slug)
+    if not (deleted or feed_updated):
+        return jsonify(error="no such episode"), 404
+    return jsonify(deleted=True, filename_slug=slug)
+
+
 # --------------------------------------------------------------------------- routes
 @app.post("/podcast")
 def podcast():
@@ -428,13 +526,8 @@ def delete():
     slug = str(data.get("filename", "")).removesuffix(".mp3").removesuffix(".html")
     if not SLUG_RE.match(slug):
         return jsonify(error="filename must be a podcast slug like podcast_<ts>_<id>"), 400
-    deleted = False
-    for ext in (".mp3", ".html"):
-        p = os.path.join(PODCAST_DIR, slug + ext)
-        if os.path.exists(p):
-            os.remove(p)
-            deleted = deleted or ext == ".mp3"
-    return jsonify(status="success", file_deleted=deleted, feed_updated=remove_feed_item(slug))
+    deleted, feed_updated = remove_episode(slug)
+    return jsonify(status="success", file_deleted=deleted, feed_updated=feed_updated)
 
 
 @app.get("/health")
