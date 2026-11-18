@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.0 - 2026-11-18
+
+- Long papers: when the text is longer than `LONG_PAPER_CHARS` (default 300000 characters), only the first part is
+  used, i.e. the appendices, supplement and references are dropped (arXiv HTML: everything before the first
+  `ltx_appendix`/`ltx_bibliography` section; converted PDFs: an `Appendix`/`Supplement` heading in the second half).
+  `PAPER_MAX_CHARS` (500000) is a hard limit. If the text is still above `LONG_PAPER_CHARS`, the gateway-written
+  Briefing script comes from `LLM_MODEL_LONG` (default `LLM_MODEL_BRIEFING`) and the TL;DR from the first 60000
+  characters. Lecture Series is never shortened. A paper of several hundred thousand characters, mostly
+  appendices, could fail repeatedly at the gateway before.
+- Fix: one failing paper no longer drops the rest of a batch. In `arXiv Scout` and `arXiv Overflow Flush`,
+  `Generate Briefing` continues on error and a new `Check Briefing Failures` node raises one error after the loop
+  that names the failed papers, so the Error Workflow still alerts.
+
 ## 1.1.1 - 2026-10-29
 
 - TTS service: `POST /v1/episode` publishes audio another app has already rendered (multipart WAV + title,

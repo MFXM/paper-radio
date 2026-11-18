@@ -133,3 +133,29 @@ def test_curation_stores_missing_ids_as_null():
     wf = load(ROOT / "n8n" / "workflows" / "mattermost-control.json")
     q = {n["name"]: n for n in wf["nodes"]}["Update Paper DB"]["parameters"]["query"]
     assert "NULLIF(NULLIF($2, ''), 'null')" in q and "NULLIF(NULLIF($3, ''), 'null')" in q
+
+
+@pytest.mark.parametrize("name", ["arxiv-scout", "arxiv-overflow-flush"])
+def test_briefing_loops_continue_on_error(name):
+    """A failing paper must not stop the rest of the batch, and the failure must still surface after the loop."""
+    wf = load(ROOT / "n8n" / "workflows" / f"{name}.json")
+    nodes = {n["name"]: n for n in wf["nodes"]}
+    assert nodes["Generate Briefing"].get("onError") == "continueErrorOutput"
+    gb = wf["connections"]["Generate Briefing"]["main"]
+    assert [c["node"] for c in gb[0]] == ["Loop Over Items"] and [c["node"] for c in gb[1]] == ["Loop Over Items"]
+    done = wf["connections"]["Loop Over Items"]["main"][0]
+    assert [c["node"] for c in done] == ["Check Briefing Failures"]
+    assert nodes["Check Briefing Failures"]["type"].endswith(".code")
+
+
+def test_long_papers_keep_the_first_part_and_are_routed():
+    wf = load(ROOT / "n8n" / "workflows" / "podcast-generation.json")
+    nodes = {n["name"]: n for n in wf["nodes"]}
+    extract = nodes["Extract Text"]["parameters"]["jsCode"]
+    assert "ltx_appendix" in extract and "ltx_bibliography" in extract and "mainText" in extract
+    code = nodes["Paper"]["parameters"]["jsCode"]
+    assert "$env.PAPER_MAX_CHARS" in code and "$env.LONG_PAPER_CHARS" in code and "'Lecture Series'" in code
+    assert "data.mainText" in code
+    model = nodes["Briefing Backup Model"]["parameters"]["model"]
+    assert "$('Paper').first().json.longPaper" in model and "$env.LLM_MODEL_LONG" in model
+    assert "tldrSource" in nodes["TLDR Backup"]["parameters"]["text"]
