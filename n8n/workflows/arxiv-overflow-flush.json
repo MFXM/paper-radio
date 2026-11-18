@@ -64,7 +64,8 @@
         16
       ],
       "id": "b79614b8-0001-c845-32a5-9d21ff79c247",
-      "name": "Generate Briefing"
+      "name": "Generate Briefing",
+      "onError": "continueErrorOutput"
     },
     {
       "parameters": {
@@ -91,6 +92,19 @@
       ],
       "id": "64a6b460-b38c-818f-9ec5-5ea984695185",
       "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 'Generate Briefing' continues on error, so one failing paper no longer stops the papers after it.\n// Raise a single error after the loop so the Error Workflow still reports what failed.\nconst done = $input.all();\nconst failed = done.filter(i => i.json && i.json.error);\nif (failed.length === 0) return done;\nconst describe = (e) => String(typeof e === 'string' ? e : ((e && e.message) || JSON.stringify(e))).slice(0, 200);\nconst ids = failed.map(i => i.json.arxivId || i.json.arxivID || 'unknown');\nthrow new Error(`Briefing failed for ${failed.length} of ${done.length} papers (${ids.join(', ')}); the others were processed. First error: ${describe(failed[0].json.error)}`);\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        -176
+      ],
+      "id": "9880e30d-a42f-5a7a-b150-312a5fe6857e",
+      "name": "Check Briefing Failures"
     }
   ],
   "connections": {
@@ -107,7 +121,13 @@
     },
     "Loop Over Items": {
       "main": [
-        [],
+        [
+          {
+            "node": "Check Briefing Failures",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Generate Briefing",
@@ -119,6 +139,13 @@
     },
     "Generate Briefing": {
       "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Loop Over Items",

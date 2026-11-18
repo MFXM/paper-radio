@@ -6,9 +6,20 @@ updates:
   - package-ecosystem: pip
     directories: [/services/tts, /services/pdf-converter]
     schedule: { interval: monthly }
+    ignore:
+      # PyMuPDF 2.0 pulls pymupdf4llm and pymupdf-layout in as stub packages and changes the Markdown output
+      # (equations become "picture text" blocks), so evaluate it as a migration instead of merging a bump.
+      - dependency-name: pymupdf
+        update-types: ["version-update:semver-major"]
+      - dependency-name: pymupdf4llm
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directories: [/services/tts, /services/pdf-converter]
     schedule: { interval: monthly }
+    ignore:
+      # onnxruntime (tts, and pdf-converter through pymupdf-layout) has no CPython 3.15 wheels yet.
+      - dependency-name: python
+        versions: [">=3.15"]
   - package-ecosystem: docker-compose
     directory: /
     schedule: { interval: monthly }

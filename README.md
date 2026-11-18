@@ -223,6 +223,7 @@ changed a key or URL that belongs to a credential).
 | `OPENROUTER_API_KEY`, `SCOUT_FALLBACK_MODEL` | – | Optional curator fallback |
 | `LLM_GATEWAY_URL`, `LLM_GATEWAY_API_KEY`, `LLM_MODEL_BRIEFING` | – | Ollama-compatible endpoint and default writing model |
 | `LLM_MODEL_TLDR` … `LLM_MODEL_EXPLAIN` | `LLM_MODEL_BRIEFING` | Per-step overrides (TL;DR, Breakdown, Deep Dive outline/chapters, Lecture planning/chapters, search explanations) |
+| `LLM_MODEL_LONG`, `LONG_PAPER_CHARS`, `PAPER_MAX_CHARS` | `LLM_MODEL_BRIEFING`, `300000`, `500000` | Papers whose text is longer than `LONG_PAPER_CHARS` characters are reduced to their first part (before the first appendix, supplement or bibliography: arXiv HTML, or an `Appendix`/`Supplement` heading in a converted PDF); `PAPER_MAX_CHARS` is a hard limit for Briefing, Breakdown and Deep Dive. If the text is still longer than `LONG_PAPER_CHARS`, the gateway-written Briefing script comes from `LLM_MODEL_LONG` (pick a model whose context window is well above `PAPER_MAX_CHARS`) and the TL;DR from the first 60 000 characters. Lecture Series always gets the whole document |
 | `GEMINI_API_KEY`, `GEMINI_SCRIPT_MODEL`, `GEMINI_TLDR_MODEL` | – | Optional Gemini for Briefings and TL;DRs |
 | `EMBEDDING_MODEL` | `nomic-embed-text` | Ollama embedding model; must produce 768-d vectors (see schema) |
 | `TTS_VOICE`, `TTS_SPEED` | `bm_george`, `1.0` | [Kokoro voice](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md); `b*` voices use British English |
