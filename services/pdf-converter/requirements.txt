@@ -3,4 +3,4 @@ uvicorn==0.54.0
 httpx==0.28.1
 pymupdf==1.28.2
 pymupdf4llm==1.28.2
-python-multipart==0.0.32
+python-multipart==0.0.33
